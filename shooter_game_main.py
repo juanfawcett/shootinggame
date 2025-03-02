@@ -6,7 +6,7 @@ Panda3D Shooting Game with Third-Person Perspective and Background
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
-from panda3d.core import CardMaker, Vec3
+from panda3d.core import CardMaker, Vec3, TransparencyAttrib
 import random
 import sys
 
@@ -26,7 +26,7 @@ LEFT_BOUND = -4.0              # left-most x position for the player
 RIGHT_BOUND = 4.0              # right-most x position for the player
 PLAYER_START_X = 0.0           # initial player x position
 PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
-ENEMY_SPAWN_Y = 30.0           # y position where enemies appear
+ENEMY_SPAWN_Y = 26.0           # y position where enemies appear
 
 # Camera settings (third-person view)
 CAMERA_DISTANCE = 15.0         # Distance behind the player
@@ -90,8 +90,8 @@ class ShootingGame(ShowBase):
                                        scale=0.1, fg=(1, 0, 0, 1))
 
         # Create player sprite
-        self.player = self.createSprite(self.characterTexture(),
-                                         PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
+        self.player = self.createSprite(loader.loadTexture(CHARACTER_IMAGE),
+                                        PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
 
         # Initialize camera position (Third-Person Perspective)
         self.updateCamera()
@@ -110,12 +110,6 @@ class ShootingGame(ShowBase):
                                    "autoShootTask")
         self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
                                    "spawnEnemyTask")
-
-    def characterTexture(self):
-        return loader.loadTexture(CHARACTER_IMAGE)
-
-    def autoShootTexture(self):
-        return loader.loadTexture(SHOT_IMAGE)
 
     def createBackground(self):
         """Creates and returns a background card using the background image."""
@@ -140,6 +134,8 @@ class ShootingGame(ShowBase):
         cm.setFrame(-0.5, 0.5, -0.5, 0.5)
         sprite = render.attachNewNode(cm.generate())
         sprite.setTexture(texture)
+        # Enable transparency for PNG images
+        sprite.setTransparency(TransparencyAttrib.MAlpha)
         sprite.setBillboardPointEye()
         sprite.setScale(scale)
         sprite.setPos(x, y, 0)
@@ -230,8 +226,8 @@ class ShootingGame(ShowBase):
     def autoShootTask(self, task):
         """Automatically fires a shot from the player's current position."""
         if not self.gameOver:
-            shot = self.createSprite(self.autoShootTexture(), self.player.getX(),
-                                     self.player.getY(), SHOT_SCALE)
+            shot = self.createSprite(loader.loadTexture(SHOT_IMAGE),
+                                     self.player.getX(), self.player.getY(), SHOT_SCALE)
             self.shots.append(shot)
         return Task.again
 
