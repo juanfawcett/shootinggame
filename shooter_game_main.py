@@ -76,21 +76,22 @@ class ShootingGame(ShowBase):
         self.enemies = []  # List to hold active enemies
         self.keyMap = {"left": False, "right": False}
 
-        # Preload textures
-        self.characterTexture = loader.loadTexture(CHARACTER_IMAGE)
-        self.shotTexture = loader.loadTexture(SHOT_IMAGE)
-        self.enemyTextures = {etype: loader.loadTexture(info["image"])
-                              for etype, info in ENEMY_TYPES.items()}
+        # New feature: win and stage tracking
+        self.winCount = 0       # Counts total wins (games won)
+        self.stage = 1          # Current stage (starts at 1)
+        self.lastWin = None     # Tracks if the last game ended in a win
 
-        # UI elements (timer and game status)
+        # UI elements (timer, win count and game status)
         self.timerText = OnscreenText(text="Time: 0", pos=(-1.3, 0.9),
                                       scale=0.07, mayChange=True)
+        self.winCountText = OnscreenText(text="Wins: 0", pos=(1.2, 0.9),
+                                         scale=0.07, mayChange=True)
         self.statusText = OnscreenText(text="", pos=(0, 0),
                                        scale=0.1, fg=(1, 0, 0, 1))
 
         # Create player sprite
-        self.player = self.createSprite(self.characterTexture,
-                                        PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
+        self.player = self.createSprite(self.characterTexture(),
+                                         PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
 
         # Initialize camera position (Third-Person Perspective)
         self.updateCamera()
@@ -109,6 +110,12 @@ class ShootingGame(ShowBase):
                                    "autoShootTask")
         self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
                                    "spawnEnemyTask")
+
+    def characterTexture(self):
+        return loader.loadTexture(CHARACTER_IMAGE)
+
+    def autoShootTexture(self):
+        return loader.loadTexture(SHOT_IMAGE)
 
     def createBackground(self):
         """Creates and returns a background card using the background image."""
@@ -223,7 +230,7 @@ class ShootingGame(ShowBase):
     def autoShootTask(self, task):
         """Automatically fires a shot from the player's current position."""
         if not self.gameOver:
-            shot = self.createSprite(self.shotTexture, self.player.getX(),
+            shot = self.createSprite(self.autoShootTexture(), self.player.getX(),
                                      self.player.getY(), SHOT_SCALE)
             self.shots.append(shot)
         return Task.again
@@ -234,8 +241,8 @@ class ShootingGame(ShowBase):
             return Task.done
         etype = random.choices(list(ENEMY_TYPES.keys()), ENEMY_SPAWN_PROB)[0]
         enemyX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
-        enemy = self.createSprite(self.enemyTextures[etype], enemyX,
-                                  ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
+        enemy = self.createSprite(loader.loadTexture(ENEMY_TYPES[etype]["image"]),
+                                  enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
         enemy.setPythonTag("hp", ENEMY_TYPES[etype]["hp"])
         enemy.setPythonTag("speed", ENEMY_TYPES[etype]["speed"])
         self.enemies.append(enemy)
@@ -244,8 +251,24 @@ class ShootingGame(ShowBase):
     def endGame(self, win):
         """Ends the game and displays a win/lose message."""
         self.gameOver = True
-        msg = "You Win!" if win else "Game Over!"
-        self.statusText.setText(f"{msg} Press Enter to restart.")
+        self.lastWin = win
+        if win:
+            # Increase win count and stage if the player wins
+            self.winCount += 1
+            self.stage += 1
+            self.winCountText.setText(f"Wins: {self.winCount}")
+            self.statusText.setText(f"You Win! Stage {self.stage} starting soon...")
+            # Automatically restart game after a short delay (3 seconds)
+            self.taskMgr.doMethodLater(3.0, self.restartGameTask, "restartGameTask")
+        else:
+            self.statusText.setText("Game Over! Press Enter to restart.")
+            # Reset stage on loss
+            self.stage = 1
+
+    def restartGameTask(self, task):
+        """Task wrapper to restart the game automatically."""
+        self.restartGame()
+        return Task.done
 
     def restartGame(self):
         """Resets the game state to allow a new game to start."""
