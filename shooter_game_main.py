@@ -36,7 +36,7 @@ CAMERA_HEIGHT = 10.0           # Height above the player
 CAMERA_LOOK_AT_OFFSET = 5.0      # Look slightly ahead of the player
 
 # Scales for sprites
-PLAYER_SCALE = 1.0            # scale for the player sprite
+PLAYER_SCALE = 2.0            # scale for the player sprite
 SHOT_SCALE = 0.3            # scale for the shot sprite
 EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
 EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to enemy scale
@@ -44,6 +44,9 @@ EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to e
 
 # PNG filenames (ensure these files are in your assets folder)
 CHARACTER_IMAGE = "assets/character.png"
+CHARACTER_IDLE_IMAGE = "assets/character_idle.png"  # New idle image
+CHARACTER_LEFT_IMAGE = "assets/character_left.png"  # New left movement image
+CHARACTER_RIGHT_IMAGE = "assets/character_right.png"  # New right movement image
 SHOT_IMAGE = "assets/shot.png"
 BACKGROUND_IMAGE = "assets/background.png"
 EXPLOSION_IMAGE = "assets/explosion.png"  # Filename for explosion image
@@ -96,8 +99,15 @@ class ShootingGame(ShowBase):
         self.statusText = OnscreenText(text="", pos=(0, 0),
                                             scale=0.1, fg=(1, 0, 0, 1))
 
-        # Create player sprite
-        self.player = self.createSprite(loader.loadTexture(CHARACTER_IMAGE),
+        # Pre-load character textures
+        self.playerTextures = {
+            "idle": loader.loadTexture(CHARACTER_IDLE_IMAGE),
+            "left": loader.loadTexture(CHARACTER_LEFT_IMAGE),
+            "right": loader.loadTexture(CHARACTER_RIGHT_IMAGE)
+        }
+
+        # Create player sprite with idle texture
+        self.player = self.createSprite(self.playerTextures["idle"],
                                             PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
 
         # Initialize camera position (Third-Person Perspective)
@@ -178,9 +188,19 @@ class ShootingGame(ShowBase):
             self.explosions.remove(explosion_sprite)
         return Task.done
 
-
     def setKey(self, key, value):
+        """Set key state and update player texture."""
         self.keyMap[key] = value
+        self.updatePlayerTexture()
+
+    def updatePlayerTexture(self):
+        """Update player texture based on key input."""
+        if self.keyMap["left"]:
+            self.player.setTexture(self.playerTextures["left"])
+        elif self.keyMap["right"]:
+            self.player.setTexture(self.playerTextures["right"])
+        else:
+            self.player.setTexture(self.playerTextures["idle"])
 
     def updateTask(self, task):
         """Main game update function."""
@@ -250,7 +270,6 @@ class ShootingGame(ShowBase):
             if explosion.getY() < PLAYER_START_Y - 10:
                 explosion.removeNode()
                 self.explosions.remove(explosion)
-
 
     def checkCollisions(self):
         """
@@ -346,6 +365,8 @@ class ShootingGame(ShowBase):
             self.explosions = []
             # Reset player position and timer
             self.player.setPos(PLAYER_START_X, PLAYER_START_Y, 0)
+            # Reset player texture to idle
+            self.player.setTexture(self.playerTextures["idle"])
             self.gameStartTime = globalClock.getRealTime()
             self.timerText.setText("Time: 0")
             self.statusText.setText("")
