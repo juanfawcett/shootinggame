@@ -6,7 +6,7 @@ Panda3D Shooting Game with Third-Person Perspective and Background
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
-from panda3d.core import CardMaker, Vec3, TransparencyAttrib
+from panda3d.core import CardMaker, Vec3, TransparencyAttrib, Point3
 import random
 import sys
 
@@ -15,32 +15,36 @@ import sys
 # ============================
 
 # Game timings and speeds
-GAME_DURATION = 60.0           # seconds to survive
-SHOT_INTERVAL = 0.20           # seconds between shots
-ENEMY_SPAWN_INTERVAL = 1.0     # seconds between enemy spawns
-PLAYER_SPEED = 12.0            # player movement speed (units/sec)
-SHOT_SPEED = 30.0              # shot movement speed (units/sec)
+GAME_DURATION = 60.0          # seconds to survive
+SHOT_INTERVAL = 0.20          # seconds between shots
+ENEMY_SPAWN_INTERVAL = 1.0      # seconds between enemy spawns
+PLAYER_SPEED = 12.0           # player movement speed (units/sec)
+SHOT_SPEED = 30.0             # shot movement speed (units/sec)
+EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
 
 # Screen / game area bounds and positions
-LEFT_BOUND = -4.0              # left-most x position for the player
-RIGHT_BOUND = 4.0              # right-most x position for the player
-PLAYER_START_X = 0.0           # initial player x position
+LEFT_BOUND = -4.0           # left-most x position for the player
+RIGHT_BOUND = 4.0           # right-most x position for the player
+PLAYER_START_X = 0.0          # initial player x position
 PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
-ENEMY_SPAWN_Y = 26.0           # y position where enemies appear
+ENEMY_SPAWN_Y = 26.0          # y position where enemies appear
 
 # Camera settings (third-person view)
 CAMERA_DISTANCE = 15.0         # Distance behind the player
 CAMERA_HEIGHT = 10.0           # Height above the player
-CAMERA_LOOK_AT_OFFSET = 5.0    # Look slightly ahead of the player
+CAMERA_LOOK_AT_OFFSET = 5.0      # Look slightly ahead of the player
 
 # Scales for sprites
-PLAYER_SCALE = 1.0             # scale for the player sprite
-SHOT_SCALE = 0.3               # scale for the shot sprite
+PLAYER_SCALE = 1.0            # scale for the player sprite
+SHOT_SCALE = 0.3            # scale for the shot sprite
+EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
+
 
 # PNG filenames (ensure these files are in your assets folder)
 CHARACTER_IMAGE = "assets/character.png"
 SHOT_IMAGE = "assets/shot.png"
 BACKGROUND_IMAGE = "assets/background.png"
+EXPLOSION_IMAGE = "assets/explosion.png"  # Filename for explosion image
 
 # Background scale constant (adjust to cover the screen)
 BACKGROUND_SCALE = 100
@@ -77,21 +81,21 @@ class ShootingGame(ShowBase):
         self.keyMap = {"left": False, "right": False}
 
         # New feature: win and stage tracking
-        self.winCount = 0       # Counts total wins (games won)
-        self.stage = 1          # Current stage (starts at 1)
-        self.lastWin = None     # Tracks if the last game ended in a win
+        self.winCount = 0      # Counts total wins (games won)
+        self.stage = 1         # Current stage (starts at 1)
+        self.lastWin = None    # Tracks if the last game ended in a win
 
         # UI elements (timer, win count and game status)
         self.timerText = OnscreenText(text="Time: 0", pos=(-1.3, 0.9),
-                                      scale=0.07, mayChange=True)
-        self.winCountText = OnscreenText(text="Wins: 0", pos=(1.2, 0.9),
                                          scale=0.07, mayChange=True)
+        self.winCountText = OnscreenText(text="Wins: 0", pos=(1.2, 0.9),
+                                            scale=0.07, mayChange=True)
         self.statusText = OnscreenText(text="", pos=(0, 0),
-                                       scale=0.1, fg=(1, 0, 0, 1))
+                                            scale=0.1, fg=(1, 0, 0, 1))
 
         # Create player sprite
         self.player = self.createSprite(loader.loadTexture(CHARACTER_IMAGE),
-                                        PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
+                                            PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
 
         # Initialize camera position (Third-Person Perspective)
         self.updateCamera()
@@ -140,6 +144,18 @@ class ShootingGame(ShowBase):
         sprite.setScale(scale)
         sprite.setPos(x, y, 0)
         return sprite
+
+    def createExplosionSprite(self, x, y, scale=EXPLOSION_SCALE):
+        """Creates an explosion sprite."""
+        explosion_tex = loader.loadTexture(EXPLOSION_IMAGE)
+        explosion_sprite = self.createSprite(explosion_tex, x, y, scale)
+        return explosion_sprite
+
+    def removeExplosionTask(self, explosion_sprite):
+        """Task to remove the explosion sprite after a delay."""
+        explosion_sprite.removeNode()
+        return Task.done
+
 
     def setKey(self, key, value):
         self.keyMap[key] = value
@@ -219,6 +235,12 @@ class ShootingGame(ShowBase):
                     if shot in self.shots:
                         self.shots.remove(shot)
                     if enemy.getPythonTag("hp") <= 0:
+                        # Create explosion at enemy position
+                        explosion = self.createExplosionSprite(enemy.getX(), enemy.getY())
+                        self.taskMgr.doMethodLater(EXPLOSION_DURATION,
+                                                        self.removeExplosionTask,
+                                                        "removeExplosionTask",
+                                                        extraArgs=[explosion])
                         enemy.removeNode()
                         self.enemies.remove(enemy)
                     break
