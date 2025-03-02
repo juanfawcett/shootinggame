@@ -21,7 +21,7 @@ ENEMY_SPAWN_INTERVAL = 1.0      # seconds between enemy spawns
 PLAYER_SPEED = 12.0           # player movement speed (units/sec)
 SHOT_SPEED = 30.0             # shot movement speed (units/sec)
 EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
-EXPLOSION_SPEED = 5.0        # Explosion movement speed (units/sec)  <- NEW PARAMETER
+EXPLOSION_SPEED = 5.0        # Explosion movement speed (units/sec)
 
 # Screen / game area bounds and positions
 LEFT_BOUND = -4.0           # left-most x position for the player
@@ -39,6 +39,7 @@ CAMERA_LOOK_AT_OFFSET = 5.0      # Look slightly ahead of the player
 PLAYER_SCALE = 1.0            # scale for the player sprite
 SHOT_SCALE = 0.3            # scale for the shot sprite
 EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
+EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to enemy scale
 
 
 # PNG filenames (ensure these files are in your assets folder)
@@ -125,7 +126,7 @@ class ShootingGame(ShowBase):
         cm.setFrame(-1, 1, -1, 1)
         bg = render.attachNewNode(cm.generate())
         bg.setTexture(bg_tex)
-        # Position the background far in front of the camera’s view
+        # Position the background far in front of the camera's view
         bg.setPos(0, 100, 0)
         bg.setScale(BACKGROUND_SCALE)
         # Set the bin so it is rendered behind game objects.
@@ -147,11 +148,27 @@ class ShootingGame(ShowBase):
         sprite.setPos(x, y, 0)
         return sprite
 
-    def createExplosionSprite(self, x, y, speed=EXPLOSION_SPEED, scale=EXPLOSION_SCALE): # Added speed parameter
-        """Creates an explosion sprite."""
+    def createExplosionSprite(self, x, y, enemy_scale=None, speed=EXPLOSION_SPEED):
+        """
+        Creates an explosion sprite with scale based on enemy size.
+        
+        Parameters:
+        - x, y: Position coordinates
+        - enemy_scale: Scale of the enemy that was destroyed
+        - speed: Movement speed of the explosion
+        """
         explosion_tex = loader.loadTexture(EXPLOSION_IMAGE)
-        explosion_sprite = self.createSprite(explosion_tex, x, y, scale)
-        explosion_sprite.setPythonTag("speed", speed) # Set speed as PythonTag
+        
+        # Calculate explosion scale based on enemy scale
+        if enemy_scale:
+            # Make explosion slightly larger than the enemy for visual impact
+            explosion_scale = enemy_scale * EXPLOSION_SCALE_MULTIPLIER
+        else:
+            # Fallback to default explosion scale
+            explosion_scale = EXPLOSION_SCALE
+            
+        explosion_sprite = self.createSprite(explosion_tex, x, y, explosion_scale)
+        explosion_sprite.setPythonTag("speed", speed)
         return explosion_sprite
 
     def removeExplosionTask(self, explosion_sprite):
@@ -252,9 +269,17 @@ class ShootingGame(ShowBase):
                     if shot in self.shots:
                         self.shots.remove(shot)
                     if enemy.getPythonTag("hp") <= 0:
-                        # Create explosion at enemy position and add to explosions list
-                        explosion = self.createExplosionSprite(enemy.getX(), enemy.getY())
-                        self.explosions.append(explosion) # Add to explosions list
+                        # Get enemy scale for the explosion
+                        enemy_scale = enemy.getScale().x  # Get the scale (x component is sufficient)
+                        
+                        # Create explosion at enemy position with scale based on enemy size
+                        explosion = self.createExplosionSprite(
+                            enemy.getX(), 
+                            enemy.getY(),
+                            enemy_scale=enemy_scale
+                        )
+                        
+                        self.explosions.append(explosion)
                         self.taskMgr.doMethodLater(EXPLOSION_DURATION,
                                                         self.removeExplosionTask,
                                                         "removeExplosionTask",
