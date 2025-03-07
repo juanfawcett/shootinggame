@@ -6,7 +6,7 @@ Panda3D Shooting Game with Third-Person Perspective and Background
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
-from panda3d.core import CardMaker, Vec3, TransparencyAttrib, Point3
+from panda3d.core import CardMaker, Vec3, TransparencyAttrib, Point3, loadPrcFileData, TextNode
 import random
 import sys
 
@@ -21,26 +21,30 @@ ENEMY_SPAWN_INTERVAL = 1.0      # seconds between enemy spawns
 PLAYER_SPEED = 12.0           # player movement speed (units/sec)
 SHOT_SPEED = 30.0             # shot movement speed (units/sec)
 EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
-EXPLOSION_SPEED = 5.0        # Explosion movement speed (units/sec)
+EXPLOSION_SPEED = 5.0         # Explosion movement speed (units/sec)
 
 # Screen / game area bounds and positions
-LEFT_BOUND = -4.0           # left-most x position for the player
-RIGHT_BOUND = 4.0           # right-most x position for the player
+LEFT_BOUND = -3.5           # left-most x position for the player
+RIGHT_BOUND = 3.5           # right-most x position for the player
 PLAYER_START_X = 0.0          # initial player x position
 PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
 ENEMY_SPAWN_Y = 26.0          # y position where enemies appear
 
 # Camera settings (third-person view)
-CAMERA_DISTANCE = 15.0         # Distance behind the player
+CAMERA_DISTANCE = 10.0         # Distance behind the player
 CAMERA_HEIGHT = 10.0           # Height above the player
-CAMERA_LOOK_AT_OFFSET = 5.0      # Look slightly ahead of the player
+CAMERA_LOOK_AT_OFFSET = 10.0      # Look slightly ahead of the player
 
 # Scales for sprites
 PLAYER_SCALE = 2.0            # scale for the player sprite
-SHOT_SCALE = 0.3            # scale for the shot sprite
+SHOT_SCALE = 0.6            # scale for the shot sprite
 EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
 EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to enemy scale
 
+# Window configuration parameters
+WINDOW_WIDTH = 450           # Width of the game window
+WINDOW_HEIGHT = 750          # Height of the game window
+WINDOW_TITLE = "Panda3D Shooting Game"  # Title of the game window
 
 # PNG filenames (ensure these files are in your assets folder)
 CHARACTER_IMAGE = "assets/character.png"
@@ -48,11 +52,13 @@ CHARACTER_IDLE_IMAGE = "assets/character_idle.png"  # New idle image
 CHARACTER_LEFT_IMAGE = "assets/character_left.png"  # New left movement image
 CHARACTER_RIGHT_IMAGE = "assets/character_right.png"  # New right movement image
 SHOT_IMAGE = "assets/shot.png"
-BACKGROUND_IMAGE = "assets/background.png"
 EXPLOSION_IMAGE = "assets/explosion.png"  # Filename for explosion image
 
-# Background scale constant (adjust to cover the screen)
-BACKGROUND_SCALE = 100
+# Background parameters (adjust these to center the background)
+BACKGROUND_IMAGE = "assets/background.png"
+BACKGROUND_POS_X = 0.0      # X offset for the background
+BACKGROUND_POS_Y = -3.0      # Y offset for the background
+BACKGROUND_SCALE = 12
 
 # Enemy types: each entry contains hit points, movement speed, sprite scale, and image file
 ENEMY_TYPES = {
@@ -65,6 +71,12 @@ ENEMY_TYPES = {
 # Enemy spawn probabilities (45%, 25%, 20%, 10%)
 ENEMY_SPAWN_PROB = [0.45, 0.25, 0.20, 0.10]
 
+# ============================
+# APPLY WINDOW CONFIGURATION
+# ============================
+loadPrcFileData("", f"win-size {WINDOW_WIDTH} {WINDOW_HEIGHT}")
+loadPrcFileData("", f"window-title {WINDOW_TITLE}")
+loadPrcFileData("", "win-fixed-size 1")
 
 # ============================
 # GAME CLASS DEFINITION
@@ -92,12 +104,29 @@ class ShootingGame(ShowBase):
         self.lastWin = None    # Tracks if the last game ended in a win
 
         # UI elements (timer, win count and game status)
-        self.timerText = OnscreenText(text="Time: 0", pos=(-1.3, 0.9),
-                                         scale=0.07, mayChange=True)
-        self.winCountText = OnscreenText(text="Wins: 0", pos=(1.2, 0.9),
-                                            scale=0.07, mayChange=True)
-        self.statusText = OnscreenText(text="", pos=(0, 0),
-                                            scale=0.1, fg=(1, 0, 0, 1))
+        # Parent texts to fixed aspect2d nodes so that they remain visible regardless of window size.
+        self.timerText = OnscreenText(
+            text="Time: 0",
+            pos=(0.05, -0.08),
+            scale=0.08,
+            fg=(1,1,1,1),
+            align=TextNode.ALeft,
+            parent=base.a2dTopLeft
+        )
+        self.winCountText = OnscreenText(
+            text="Wins: 0",
+            pos=(-0.05, -0.08),
+            scale=0.08,
+            fg=(1,1,1,1),
+            align=TextNode.ARight,
+            parent=base.a2dTopRight
+        )
+        self.statusText = OnscreenText(
+            text="",
+            pos=(0, 0),
+            scale=0.1,
+            fg=(1, 0, 0, 1)
+        )
 
         # Pre-load character textures
         self.playerTextures = {
@@ -108,7 +137,7 @@ class ShootingGame(ShowBase):
 
         # Create player sprite with idle texture
         self.player = self.createSprite(self.playerTextures["idle"],
-                                            PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
+                                         PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
 
         # Initialize camera position (Third-Person Perspective)
         self.updateCamera()
@@ -124,9 +153,9 @@ class ShootingGame(ShowBase):
         # Game tasks
         self.taskMgr.add(self.updateTask, "updateTask")
         self.taskMgr.doMethodLater(SHOT_INTERVAL, self.autoShootTask,
-                                        "autoShootTask")
+                                   "autoShootTask")
         self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
-                                        "spawnEnemyTask")
+                                   "spawnEnemyTask")
 
     def createBackground(self):
         """Creates and returns a background card using the background image."""
@@ -136,8 +165,8 @@ class ShootingGame(ShowBase):
         cm.setFrame(-1, 1, -1, 1)
         bg = render.attachNewNode(cm.generate())
         bg.setTexture(bg_tex)
-        # Position the background far in front of the camera's view
-        bg.setPos(0, 100, 0)
+        # Position the background using configurable parameters
+        bg.setPos(BACKGROUND_POS_X, BACKGROUND_POS_Y, 0)
         bg.setScale(BACKGROUND_SCALE)
         # Set the bin so it is rendered behind game objects.
         bg.setBin("background", 0)
@@ -184,7 +213,7 @@ class ShootingGame(ShowBase):
     def removeExplosionTask(self, explosion_sprite):
         """Task to remove the explosion sprite after a delay."""
         explosion_sprite.removeNode()
-        if explosion_sprite in self.explosions: # Remove from explosions list
+        if explosion_sprite in self.explosions:  # Remove from explosions list
             self.explosions.remove(explosion_sprite)
         return Task.done
 
@@ -211,7 +240,7 @@ class ShootingGame(ShowBase):
         self.updatePlayer(dt)
         self.updateShots(dt)
         self.updateEnemies(dt)
-        self.updateExplosions(dt) # Update explosions
+        self.updateExplosions(dt)  # Update explosions
         self.checkCollisions()
         self.updateCamera()
 
@@ -236,7 +265,7 @@ class ShootingGame(ShowBase):
         """Moves the camera behind and slightly above the player."""
         playerX = self.player.getX()
         self.camera.setPos(playerX, PLAYER_START_Y - CAMERA_DISTANCE,
-                                 CAMERA_HEIGHT)
+                           CAMERA_HEIGHT)
         self.camera.lookAt(playerX, PLAYER_START_Y + CAMERA_LOOK_AT_OFFSET, 0)
 
     def updateShots(self, dt):
@@ -253,7 +282,7 @@ class ShootingGame(ShowBase):
             speed = enemy.getPythonTag("speed")
             enemy.setY(enemy.getY() - speed * dt)
             # Check for collision with the player (simple horizontal distance check)
-            if enemy.getY() <= PLAYER_START_Y + 0.5:
+            if enemy.getY() <= PLAYER_START_Y + 0.2:
                 if abs(enemy.getX() - self.player.getX()) < 1.0:
                     self.endGame(win=False)
             # Remove enemy if it goes out of bounds
@@ -261,7 +290,7 @@ class ShootingGame(ShowBase):
                 enemy.removeNode()
                 self.enemies.remove(enemy)
 
-    def updateExplosions(self, dt): # NEW function to update explosions
+    def updateExplosions(self, dt):
         """Moves explosions downward and removes out-of-bounds or timed-out explosions."""
         for explosion in self.explosions[:]:
             speed = explosion.getPythonTag("speed")
@@ -289,20 +318,18 @@ class ShootingGame(ShowBase):
                         self.shots.remove(shot)
                     if enemy.getPythonTag("hp") <= 0:
                         # Get enemy scale for the explosion
-                        enemy_scale = enemy.getScale().x  # Get the scale (x component is sufficient)
-                        
+                        enemy_scale = enemy.getScale().x  # Use x component of the scale
                         # Create explosion at enemy position with scale based on enemy size
                         explosion = self.createExplosionSprite(
-                            enemy.getX(), 
+                            enemy.getX(),
                             enemy.getY(),
                             enemy_scale=enemy_scale
                         )
-                        
                         self.explosions.append(explosion)
                         self.taskMgr.doMethodLater(EXPLOSION_DURATION,
-                                                        self.removeExplosionTask,
-                                                        "removeExplosionTask",
-                                                        extraArgs=[explosion])
+                                                   self.removeExplosionTask,
+                                                   "removeExplosionTask",
+                                                   extraArgs=[explosion])
                         enemy.removeNode()
                         self.enemies.remove(enemy)
                     break
@@ -311,7 +338,7 @@ class ShootingGame(ShowBase):
         """Automatically fires a shot from the player's current position."""
         if not self.gameOver:
             shot = self.createSprite(loader.loadTexture(SHOT_IMAGE),
-                                             self.player.getX(), self.player.getY(), SHOT_SCALE)
+                                     self.player.getX(), self.player.getY(), SHOT_SCALE)
             self.shots.append(shot)
         return Task.again
 
@@ -322,7 +349,7 @@ class ShootingGame(ShowBase):
         etype = random.choices(list(ENEMY_TYPES.keys()), ENEMY_SPAWN_PROB)[0]
         enemyX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
         enemy = self.createSprite(loader.loadTexture(ENEMY_TYPES[etype]["image"]),
-                                         enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
+                                  enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
         enemy.setPythonTag("hp", ENEMY_TYPES[etype]["hp"])
         enemy.setPythonTag("speed", ENEMY_TYPES[etype]["speed"])
         self.enemies.append(enemy)
@@ -360,7 +387,7 @@ class ShootingGame(ShowBase):
             for enemy in self.enemies:
                 enemy.removeNode()
             self.enemies = []
-            for explosion in self.explosions: # Remove explosions as well
+            for explosion in self.explosions:
                 explosion.removeNode()
             self.explosions = []
             # Reset player position and timer
@@ -373,7 +400,7 @@ class ShootingGame(ShowBase):
             self.gameOver = False
             # Re-schedule the enemy spawn task since it was terminated
             self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
-                                            "spawnEnemyTask")
+                                       "spawnEnemyTask")
 
 
 game = ShootingGame()
