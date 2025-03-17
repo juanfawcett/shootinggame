@@ -330,13 +330,14 @@ class ShootingGame(ShowBase):
             speed = enemy.getPythonTag("speed")
             enemy.setY(enemy.getY() - speed * dt)
             # Check for collision with the player (simple horizontal distance check)
-            if enemy.getY() <= PLAYER_START_Y + 0.2:
+            if enemy.getY() <= PLAYER_START_Y:
+                # Check collision when enemy reaches player's y coordinate
                 if abs(enemy.getX() - self.player.getX()) < 1.0:
                     self.endGame(win=False)
-            # Remove enemy if it goes out of bounds
-            if enemy.getY() < PLAYER_START_Y - 10:
+                # In either case, remove the enemy since it’s passed the player
                 enemy.removeNode()
                 self.enemies.remove(enemy)
+                continue
 
     def updateBonuses(self, dt):
         """Moves bonuses downward and checks for collision with the player."""
@@ -345,13 +346,14 @@ class ShootingGame(ShowBase):
             bonus.setY(bonus.getY() - speed * dt)
             
             # Check for collision with the player
-            if bonus.getY() <= PLAYER_START_Y + 0.2:
+            if bonus.getY() <= PLAYER_START_Y:
+                # Check for collision at player's y position
                 if abs(bonus.getX() - self.player.getX()) < 1.0:
-                    # Apply bonus effect to player's shot parameters
                     self.applyBonusEffect(bonus.getPythonTag("value"))
-                    bonus.removeNode()
-                    self.bonuses.remove(bonus)
-                    continue  # Skip the rest of this iteration
+                # Remove bonus regardless of collision
+                bonus.removeNode()
+                self.bonuses.remove(bonus)
+                continue
             
             # Remove bonus if it goes out of bounds
             if bonus.getY() < PLAYER_START_Y - 10:
@@ -537,7 +539,6 @@ class ShootingGame(ShowBase):
                 
             # Reset player position and timer
             self.player.setPos(PLAYER_START_X, PLAYER_START_Y, 0)
-            # Reset player texture to idle
             self.player.setTexture(self.playerTextures["idle"])
             
             # Reset shot parameters
@@ -553,11 +554,14 @@ class ShootingGame(ShowBase):
             self.statusText.setText("")
             self.gameOver = False
             
-            # Re-schedule the game tasks
-            self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
-                                      "spawnEnemyTask")
-            self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask,
-                                      "spawnBonusTask")
+            # Remove existing enemy and bonus spawn tasks (if any)
+            self.taskMgr.remove("spawnEnemyTask")
+            self.taskMgr.remove("spawnBonusTask")
+            
+            # Re-schedule the game tasks with the proper intervals
+            self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
+            self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
+
 
 
 game = ShootingGame()
