@@ -81,17 +81,17 @@ BACKGROUND_SCALE = 12
 
 # Enemy types: each entry contains hit points, movement speed, sprite scale, and image file
 ENEMY_TYPES = {
-    1: {"hp": 2,  "speed": 15.0 / 3, "scale": 1.0, "image": "assets/enemy2.png"},
-    2: {"hp": 4,  "speed": 12.0 / 3, "scale": 1.2, "image": "assets/enemy2.png"},
-    3: {"hp": 8,  "speed": 9.0 / 3,  "scale": 1.4, "image": "assets/enemy3.png"},
-    4: {"hp": 16, "speed": 6.0 / 3,  "scale": 1.7, "image": "assets/enemy.png"},
+    1: {"hp": 2,  "speed": 15.0 / 2, "scale": 1.0, "image": "assets/enemy2.png"},
+    2: {"hp": 4,  "speed": 12.0 / 2, "scale": 1.2, "image": "assets/enemy2.png"},
+    3: {"hp": 8,  "speed": 9.0 / 2,  "scale": 1.4, "image": "assets/enemy3.png"},
+    4: {"hp": 16, "speed": 6.0 / 2,  "scale": 1.7, "image": "assets/enemy.png"},
 }
 
 # Enemy spawn probabilities (45%, 25%, 20%, 10%)
 ENEMY_SPAWN_PROB = [0.45, 0.25, 0.20, 0.10]
 
 # Player starting life
-PLAYER_STARTING_LIFE = 20
+PLAYER_STARTING_LIFE = 3
 
 # ============================
 # APPLY WINDOW CONFIGURATION
@@ -240,12 +240,7 @@ class ShootingGame(ShowBase):
         else:
             # Reset camera to original position
             self.camera.setPos(self.originalCameraPos)
-            return Task.done
-
-    def stopScreenShake(self, task):
-        """Stops the screen shake effect."""
-        self.camera.setPos(self.originalCameraPos)
-        return Task.done
+            return Task.done    
 
     def showRedFilter(self):
         """Shows the red filter."""
@@ -363,15 +358,15 @@ class ShootingGame(ShowBase):
         self.updatePlayer(dt)
         self.updateShots(dt)
         self.updateEnemies(dt)
-        self.updateExplosions(dt)  # Update explosions
-        self.updateBonuses(dt)    # Update bonuses
+        self.updateExplosions(dt)
+        self.updateBonuses(dt)
         self.checkCollisions()
         self.updateCamera()
 
         # Game Timer
         elapsed = globalClock.getRealTime() - self.gameStartTime
         self.timerText.setText(f"Time: {elapsed:.1f}")
-        if elapsed >= GAME_DURATION and not self.enemies: # Check if time is up and no enemies left
+        if elapsed >= GAME_DURATION:  # Remove check for self.enemies
             self.endGame(win=True)
         elif self.playerLife <= 0:
             self.endGame(win=False)
