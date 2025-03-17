@@ -18,57 +18,57 @@ import sys
 GAME_DURATION = 60.0          # seconds to survive
 SHOT_INTERVAL = 0.20          # seconds between shots
 ENEMY_SPAWN_INTERVAL = 1.0      # seconds between enemy spawns
-PLAYER_SPEED = 12.0           # player movement speed (units/sec)
+PLAYER_SPEED = 12.0            # player movement speed (units/sec)
 SHOT_SPEED = 30.0             # shot movement speed (units/sec)
 EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
 EXPLOSION_SPEED = 5.0         # Explosion movement speed (units/sec)
-BONUS_SPAWN_INTERVAL = 15.0   # seconds between bonus spawns
+BONUS_SPAWN_INTERVAL = 15.0    # seconds between bonus spawns
 
 # Screen / game area bounds and positions
-LEFT_BOUND = -3.5           # left-most x position for the player
+LEFT_BOUND = -3.5            # left-most x position for the player
 RIGHT_BOUND = 3.5           # right-most x position for the player
 PLAYER_START_X = 0.0          # initial player x position
 PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
 ENEMY_SPAWN_Y = 26.0          # y position where enemies appear
 
 # Camera settings (third-person view)
-CAMERA_DISTANCE = 10.0         # Distance behind the player
-CAMERA_HEIGHT = 10.0           # Height above the player
-CAMERA_LOOK_AT_OFFSET = 10.0      # Look slightly ahead of the player
+CAMERA_DISTANCE = 10.0        # Distance behind the player
+CAMERA_HEIGHT = 10.0          # Height above the player
+CAMERA_LOOK_AT_OFFSET = 10.0   # Look slightly ahead of the player
 
 # Scales for sprites
 PLAYER_SCALE = 2.0            # scale for the player sprite
-SHOT_SCALE = 0.6            # scale for the shot sprite
+SHOT_SCALE = 0.6             # scale for the shot sprite
 EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
-EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to enemy scale
-BONUS_SCALE = 5.0           # scale for the bonus sprite
+EXPLOSION_SCALE_MULTIPLIER = 1.1 # Multiplier for explosion scale relative to enemy scale
+BONUS_SCALE = 5.0             # scale for the bonus sprite
 
 # Bonus parameters
 BONUS_STARTING_VALUE = -10    # starting value for bonus
 BONUS_MAX_VALUE = 10          # maximum value for bonus
-BONUS_MIN_VALUE = -10         # minimum value for bonus
-BONUS_SPEED = 3.0             # bonus movement speed (units/sec)
-BONUS_POSITIVE_IMAGE = "assets/bonus_positive.png"  # image for positive bonus
-BONUS_NEGATIVE_IMAGE = "assets/bonus_negative.png"  # image for negative bonus
-BONUS_TRANSPARENCY = 0.6      # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
+BONUS_MIN_VALUE = -10          # minimum value for bonus
+BONUS_SPEED = 3.0            # bonus movement speed (units/sec)
+BONUS_POSITIVE_IMAGE = "assets/bonus_positive.png" # image for positive bonus
+BONUS_NEGATIVE_IMAGE = "assets/bonus_negative.png" # image for negative bonus
+BONUS_TRANSPARENCY = 0.6       # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
 
 # Window configuration parameters
-WINDOW_WIDTH = 450           # Width of the game window
-WINDOW_HEIGHT = 750          # Height of the game window
-WINDOW_TITLE = "Panda3D Shooting Game"  # Title of the game window
+WINDOW_WIDTH = 450            # Width of the game window
+WINDOW_HEIGHT = 750           # Height of the game window
+WINDOW_TITLE = "Panda3D Shooting Game" # Title of the game window
 
 # PNG filenames (ensure these files are in your assets folder)
 CHARACTER_IMAGE = "assets/character.png"
-CHARACTER_IDLE_IMAGE = "assets/character_idle.png"  # New idle image
-CHARACTER_LEFT_IMAGE = "assets/character_left.png"  # New left movement image
-CHARACTER_RIGHT_IMAGE = "assets/character_right.png"  # New right movement image
+CHARACTER_IDLE_IMAGE = "assets/character_idle.png" # New idle image
+CHARACTER_LEFT_IMAGE = "assets/character_left.png" # New left movement image
+CHARACTER_RIGHT_IMAGE = "assets/character_right.png" # New right movement image
 SHOT_IMAGE = "assets/shot.png"
-EXPLOSION_IMAGE = "assets/explosion.png"  # Filename for explosion image
+EXPLOSION_IMAGE = "assets/explosion.png" # Filename for explosion image
 
 # Background parameters (adjust these to center the background)
 BACKGROUND_IMAGE = "assets/background.png"
-BACKGROUND_POS_X = 0.0      # X offset for the background
-BACKGROUND_POS_Y = -3.0      # Y offset for the background
+BACKGROUND_POS_X = 0.0          # X offset for the background
+BACKGROUND_POS_Y = -3.0          # Y offset for the background
 BACKGROUND_SCALE = 12
 
 # Enemy types: each entry contains hit points, movement speed, sprite scale, and image file
@@ -81,6 +81,9 @@ ENEMY_TYPES = {
 
 # Enemy spawn probabilities (45%, 25%, 20%, 10%)
 ENEMY_SPAWN_PROB = [0.45, 0.25, 0.20, 0.10]
+
+# Game parameters
+STARTING_LIVES = 3
 
 # ============================
 # APPLY WINDOW CONFIGURATION
@@ -109,14 +112,15 @@ class ShootingGame(ShowBase):
         self.explosions = [] # List to hold active explosions
         self.bonuses = []  # List to hold active bonuses
         self.keyMap = {"left": False, "right": False}
-        
+        self.lives = STARTING_LIVES # Initialize player lives
+
         # Player shot modifiers (affected by bonuses)
         self.currentShotInterval = SHOT_INTERVAL
         self.currentShotScale = SHOT_SCALE
 
         # New feature: win and stage tracking
         self.winCount = 0      # Counts total wins (games won)
-        self.stage = 1         # Current stage (starts at 1)
+        self.stage = 1        # Current stage (starts at 1)
         self.lastWin = None    # Tracks if the last game ended in a win
 
         # UI elements (timer, win count and game status)
@@ -137,6 +141,14 @@ class ShootingGame(ShowBase):
             align=TextNode.ARight,
             parent=base.a2dTopRight
         )
+        self.livesText = OnscreenText(
+            text=f"Lives: {self.lives}",
+            pos=(0.05, -0.16),
+            scale=0.08,
+            fg=(1, 1, 1, 1),
+            align=TextNode.ALeft,
+            parent=base.a2dTopLeft
+        )
         self.statusText = OnscreenText(
             text="",
             pos=(0, 0),
@@ -150,7 +162,7 @@ class ShootingGame(ShowBase):
             "left": loader.loadTexture(CHARACTER_LEFT_IMAGE),
             "right": loader.loadTexture(CHARACTER_RIGHT_IMAGE)
         }
-        
+
         # Pre-load bonus textures
         self.bonusTextures = {
             "positive": loader.loadTexture(BONUS_POSITIVE_IMAGE),
@@ -175,11 +187,11 @@ class ShootingGame(ShowBase):
         # Game tasks
         self.taskMgr.add(self.updateTask, "updateTask")
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask,
-                                   "autoShootTask")
+                                    "autoShootTask")
         self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
-                                   "spawnEnemyTask")
+                                    "spawnEnemyTask")
         self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask,
-                                   "spawnBonusTask")
+                                    "spawnBonusTask")
 
     def createBackground(self):
         """Creates and returns a background card using the background image."""
@@ -216,14 +228,14 @@ class ShootingGame(ShowBase):
     def createExplosionSprite(self, x, y, enemy_scale=None, speed=EXPLOSION_SPEED):
         """
         Creates an explosion sprite with scale based on enemy size.
-        
+
         Parameters:
         - x, y: Position coordinates
         - enemy_scale: Scale of the enemy that was destroyed
         - speed: Movement speed of the explosion
         """
         explosion_tex = loader.loadTexture(EXPLOSION_IMAGE)
-        
+
         # Calculate explosion scale based on enemy scale
         if enemy_scale:
             # Make explosion slightly larger than the enemy for visual impact
@@ -231,7 +243,7 @@ class ShootingGame(ShowBase):
         else:
             # Fallback to default explosion scale
             explosion_scale = EXPLOSION_SCALE
-            
+
         explosion_sprite = self.createSprite(explosion_tex, x, y, explosion_scale)
         explosion_sprite.setPythonTag("speed", speed)
         return explosion_sprite
@@ -239,7 +251,7 @@ class ShootingGame(ShowBase):
     def createBonusSprite(self, x, y, value=BONUS_STARTING_VALUE, scale=BONUS_SCALE, speed=BONUS_SPEED):
         """
         Creates a bonus sprite with the given parameters.
-        
+
         Parameters:
         - x, y: Position coordinates
         - value: Bonus value (-10 to 10)
@@ -248,13 +260,13 @@ class ShootingGame(ShowBase):
         """
         # Choose the appropriate texture based on the value
         texture = self.bonusTextures["positive"] if value > 0 else self.bonusTextures["negative"]
-        
+
         # Create bonus sprite with transparency setting from configuration
         bonus_sprite = self.createSprite(texture, x, y, scale, BONUS_TRANSPARENCY)
         bonus_sprite.setPythonTag("value", value)
         bonus_sprite.setPythonTag("speed", speed)
         bonus_sprite.setPythonTag("scale", scale)
-        
+
         return bonus_sprite
 
     def removeExplosionTask(self, explosion_sprite):
@@ -288,7 +300,7 @@ class ShootingGame(ShowBase):
         self.updateShots(dt)
         self.updateEnemies(dt)
         self.updateExplosions(dt)  # Update explosions
-        self.updateBonuses(dt)     # Update bonuses
+        self.updateBonuses(dt)    # Update bonuses
         self.checkCollisions()
         self.updateCamera()
 
@@ -313,7 +325,7 @@ class ShootingGame(ShowBase):
         """Moves the camera behind and slightly above the player."""
         playerX = self.player.getX()
         self.camera.setPos(playerX, PLAYER_START_Y - CAMERA_DISTANCE,
-                           CAMERA_HEIGHT)
+                            CAMERA_HEIGHT)
         self.camera.lookAt(playerX, PLAYER_START_Y + CAMERA_LOOK_AT_OFFSET, 0)
 
     def updateShots(self, dt):
@@ -333,7 +345,16 @@ class ShootingGame(ShowBase):
             if enemy.getY() <= PLAYER_START_Y:
                 # Check collision when enemy reaches player's y coordinate
                 if abs(enemy.getX() - self.player.getX()) < 1.0:
-                    self.endGame(win=False)
+                    self.lives -= 1
+                    self.livesText.setText(f"Lives: {self.lives}")
+                    if self.lives <= 0:
+                        self.endGame(win=False)
+                else:
+                    # Enemy reached the bottom without collision, decrease life
+                    self.lives -= 1
+                    self.livesText.setText(f"Lives: {self.lives}")
+                    if self.lives <= 0:
+                        self.endGame(win=False)
                 # In either case, remove the enemy since it’s passed the player
                 enemy.removeNode()
                 self.enemies.remove(enemy)
@@ -344,7 +365,7 @@ class ShootingGame(ShowBase):
         for bonus in self.bonuses[:]:
             speed = bonus.getPythonTag("speed")
             bonus.setY(bonus.getY() - speed * dt)
-            
+
             # Check for collision with the player
             if bonus.getY() <= PLAYER_START_Y:
                 # Check for collision at player's y position
@@ -354,7 +375,7 @@ class ShootingGame(ShowBase):
                 bonus.removeNode()
                 self.bonuses.remove(bonus)
                 continue
-            
+
             # Remove bonus if it goes out of bounds
             if bonus.getY() < PLAYER_START_Y - 10:
                 bonus.removeNode()
@@ -374,11 +395,11 @@ class ShootingGame(ShowBase):
             # Linear interpolation for values between min and max
             # Map from -10..10 to 0.5..2.0
             modifier = 0.5 + ((value - BONUS_MIN_VALUE) / (BONUS_MAX_VALUE - BONUS_MIN_VALUE)) * 1.5
-        
+
         # Apply modifiers to shot interval and scale
         self.currentShotInterval = SHOT_INTERVAL / modifier  # Lower interval = faster shots
-        self.currentShotScale = SHOT_SCALE * modifier       # Higher scale = bigger shots
-        
+        self.currentShotScale = SHOT_SCALE * modifier      # Higher scale = bigger shots
+
         # Reschedule the shot task with the new interval
         self.taskMgr.remove("autoShootTask")
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
@@ -400,7 +421,7 @@ class ShootingGame(ShowBase):
         for shot in self.shots[:]:
             shotPos = shot.getPos()
             shot_to_remove = False
-            
+
             # Check for collision with enemies
             for enemy in self.enemies[:]:
                 enemyPos = enemy.getPos()
@@ -408,10 +429,10 @@ class ShootingGame(ShowBase):
                     # Reduce enemy HP by 1
                     hp = enemy.getPythonTag("hp")
                     enemy.setPythonTag("hp", hp - 1)
-                    
+
                     # Flag the shot for removal
                     shot_to_remove = True
-                    
+
                     # Check if enemy is destroyed
                     if enemy.getPythonTag("hp") <= 0:
                         # Get enemy scale for the explosion
@@ -424,19 +445,19 @@ class ShootingGame(ShowBase):
                         )
                         self.explosions.append(explosion)
                         self.taskMgr.doMethodLater(EXPLOSION_DURATION,
-                                                   self.removeExplosionTask,
-                                                   "removeExplosionTask",
-                                                   extraArgs=[explosion])
+                                                    self.removeExplosionTask,
+                                                    "removeExplosionTask",
+                                                    extraArgs=[explosion])
                         enemy.removeNode()
                         self.enemies.remove(enemy)
-                    break  # Shot can only hit one enemy
-            
+                        break  # Shot can only hit one enemy
+
             # If shot is flagged for removal, remove it and skip bonus collision check
             if shot_to_remove:
                 shot.removeNode()
                 self.shots.remove(shot)
                 continue
-            
+
             # If shot is still active, check for collision with bonuses
             for bonus in self.bonuses[:]:
                 bonusPos = bonus.getPos()
@@ -445,11 +466,11 @@ class ShootingGame(ShowBase):
                     value = bonus.getPythonTag("value")
                     new_value = min(value + 1, BONUS_MAX_VALUE)  # Cap at max value
                     bonus.setPythonTag("value", new_value)
-                    
+
                     # Update bonus texture based on new value
                     if value <= 0 and new_value > 0:  # Changed from negative to positive
                         bonus.setTexture(self.bonusTextures["positive"])
-                    
+
                     # Only remove the shot if the bonus has a negative value
                     # Positive-value bonuses allow bullets to continue
                     if new_value <= 0:
@@ -473,7 +494,7 @@ class ShootingGame(ShowBase):
         etype = random.choices(list(ENEMY_TYPES.keys()), ENEMY_SPAWN_PROB)[0]
         enemyX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
         enemy = self.createSprite(loader.loadTexture(ENEMY_TYPES[etype]["image"]),
-                                  enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
+                                     enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
         enemy.setPythonTag("hp", ENEMY_TYPES[etype]["hp"])
         enemy.setPythonTag("speed", ENEMY_TYPES[etype]["speed"])
         self.enemies.append(enemy)
@@ -483,10 +504,10 @@ class ShootingGame(ShowBase):
         """Spawns a new bonus every BONUS_SPAWN_INTERVAL seconds."""
         if self.gameOver:
             return Task.done
-            
+
         bonusX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
         bonus = self.createBonusSprite(
-            bonusX, 
+            bonusX,
             ENEMY_SPAWN_Y,
             value=BONUS_STARTING_VALUE,
             scale=BONUS_SCALE,
@@ -508,7 +529,7 @@ class ShootingGame(ShowBase):
             # Automatically restart game after a short delay (3 seconds)
             self.taskMgr.doMethodLater(3.0, self.restartGameTask, "restartGameTask")
         else:
-            self.statusText.setText("Game Over! Press Enter to restart.")
+            self.statusText.setText(f"Game Over! Lives remaining: {max(0, self.lives)}. Press Enter to restart.")
             # Reset stage on loss
             self.stage = 1
 
@@ -524,44 +545,47 @@ class ShootingGame(ShowBase):
             for shot in self.shots:
                 shot.removeNode()
             self.shots = []
-            
+
             for enemy in self.enemies:
                 enemy.removeNode()
             self.enemies = []
-            
+
             for explosion in self.explosions:
                 explosion.removeNode()
             self.explosions = []
-                
+
             for bonus in self.bonuses:
                 bonus.removeNode()
             self.bonuses = []
-                
+
             # Reset player position and timer
             self.player.setPos(PLAYER_START_X, PLAYER_START_Y, 0)
             self.player.setTexture(self.playerTextures["idle"])
-            
+
+            # Reset player lives
+            self.lives = STARTING_LIVES
+            self.livesText.setText(f"Lives: {self.lives}")
+
             # Reset shot parameters
             self.currentShotInterval = SHOT_INTERVAL
             self.currentShotScale = SHOT_SCALE
-            
+
             # Reschedule the shot task with the default interval
             self.taskMgr.remove("autoShootTask")
             self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
-            
+
             self.gameStartTime = globalClock.getRealTime()
             self.timerText.setText("Time: 0")
             self.statusText.setText("")
             self.gameOver = False
-            
+
             # Remove existing enemy and bonus spawn tasks (if any)
             self.taskMgr.remove("spawnEnemyTask")
             self.taskMgr.remove("spawnBonusTask")
-            
+
             # Re-schedule the game tasks with the proper intervals
             self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
             self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
-
 
 
 game = ShootingGame()
