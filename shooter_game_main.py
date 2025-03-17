@@ -22,7 +22,7 @@ PLAYER_SPEED = 12.0           # player movement speed (units/sec)
 SHOT_SPEED = 30.0             # shot movement speed (units/sec)
 EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
 EXPLOSION_SPEED = 5.0         # Explosion movement speed (units/sec)
-BONUS_SPAWN_INTERVAL = 15.0    # seconds between bonus spawns
+BONUS_SPAWN_INTERVAL = 2.0     # seconds between bonus spawns
 
 # Screen shake parameters
 SHAKE_INTENSITY = 0.5         # Maximum offset for screen shake
@@ -34,15 +34,22 @@ RED_FILTER_DURATION = 0.3     # Duration of the red filter in seconds
 
 # Screen / game area bounds and positions
 LEFT_BOUND = -3.5            # left-most x position for the player
-RIGHT_BOUND = 3.5           # right-most x position for the player
+RIGHT_BOUND = 3.5            # right-most x position for the player
 PLAYER_START_X = 0.0          # initial player x position
 PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
 ENEMY_SPAWN_Y = 26.0          # y position where enemies appear
 
+# Calculate bonus spawn positions (first quarter and third quarter of play area)
+TOTAL_WIDTH = RIGHT_BOUND - LEFT_BOUND
+BONUS_SPAWN_POSITIONS = [
+    LEFT_BOUND + (TOTAL_WIDTH * 0.25),   # First quarter
+    LEFT_BOUND + (TOTAL_WIDTH * 0.75)    # Third quarter
+]
+
 # Camera settings (third-person view)
 CAMERA_DISTANCE = 10.0        # Distance behind the player
 CAMERA_HEIGHT = 10.0          # Height above the player
-CAMERA_LOOK_AT_OFFSET = 10.0   # Look slightly ahead of the player
+CAMERA_LOOK_AT_OFFSET = 10.0  # Look slightly ahead of the player
 
 # Scales for sprites
 PLAYER_SCALE = 2.0            # scale for the player sprite
@@ -53,16 +60,16 @@ BONUS_SCALE = 5.0             # scale for the bonus sprite
 
 # Bonus parameters
 BONUS_STARTING_VALUE = -10    # starting value for bonus
-BONUS_MAX_VALUE = 10          # maximum value for bonus
-BONUS_MIN_VALUE = -10          # minimum value for bonus
-BONUS_SPEED = 3.0             # bonus movement speed (units/sec)
+BONUS_MAX_VALUE = 10      # maximum value for bonus
+BONUS_MIN_VALUE = -10      # minimum value for bonus
+BONUS_SPEED = 3.0          # bonus movement speed (units/sec)
 BONUS_POSITIVE_IMAGE = "assets/bonus_positive.png" # image for positive bonus
 BONUS_NEGATIVE_IMAGE = "assets/bonus_negative.png" # image for negative bonus
-BONUS_TRANSPARENCY = 0.6      # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
+BONUS_TRANSPARENCY = 0.6     # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
 
 # Window configuration parameters
-WINDOW_WIDTH = 450            # Width of the game window
-WINDOW_HEIGHT = 750           # Height of the game window
+WINDOW_WIDTH = 450          # Width of the game window
+WINDOW_HEIGHT = 750         # Height of the game window
 WINDOW_TITLE = "Panda3D Shooting Game" # Title of the game window
 
 # PNG filenames (ensure these files are in your assets folder)
@@ -128,7 +135,7 @@ class ShootingGame(ShowBase):
 
         # New feature: win and stage tracking
         self.winCount = 0      # Counts total wins (games won)
-        self.stage = 1         # Current stage (starts at 1)
+        self.stage = 1        # Current stage (starts at 1)
         self.lastWin = None    # Tracks if the last game ended in a win
 
         # UI elements (timer, win count, life counter, and game status)
@@ -240,7 +247,7 @@ class ShootingGame(ShowBase):
         else:
             # Reset camera to original position
             self.camera.setPos(self.originalCameraPos)
-            return Task.done    
+            return Task.done
 
     def showRedFilter(self):
         """Shows the red filter."""
@@ -314,7 +321,7 @@ class ShootingGame(ShowBase):
         Parameters:
         - x, y: Position coordinates
         - value: Bonus value (-10 to 10)
-        - scale: Sprite scale
+        - scale: Sprite scale (vertical and depth)
         - speed: Movement speed
         """
         # Choose the appropriate texture based on the value
@@ -326,7 +333,14 @@ class ShootingGame(ShowBase):
         bonus_sprite.setPythonTag("speed", speed)
         bonus_sprite.setPythonTag("scale", scale)
 
+        # Stretch the bonus image horizontally:
+        # Set the X scale to half of the total distance between boundaries,
+        # while keeping the vertical scale (Y and Z) the same.
+        horiz_scale = (RIGHT_BOUND - LEFT_BOUND)
+        bonus_sprite.setScale(horiz_scale, scale, scale)
+
         return bonus_sprite
+
 
     def removeExplosionTask(self, explosion_sprite):
         """Task to remove the explosion sprite after a delay."""
@@ -413,7 +427,7 @@ class ShootingGame(ShowBase):
                     self.showRedFilter()
                     if self.playerLife <= 0:
                         self.endGame(win=False)
-                # In either case (collision or just reaching bottom), reduce life and remove the enemy
+                    # In either case (collision or just reaching bottom), reduce life and remove the enemy
                 if enemy in self.enemies: # Check if enemy was already removed due to collision
                     self.playerLife -= 1
                     self.lifeText.setText(f"Life: {self.playerLife}")
@@ -463,7 +477,7 @@ class ShootingGame(ShowBase):
 
         # Apply modifiers to shot interval and scale
         self.currentShotInterval = SHOT_INTERVAL / modifier  # Lower interval = faster shots
-        self.currentShotScale = SHOT_SCALE * modifier      # Higher scale = bigger shots
+        self.currentShotScale = SHOT_SCALE * modifier       # Higher scale = bigger shots
 
         # Reschedule the shot task with the new interval
         self.taskMgr.remove("autoShootTask")
@@ -548,7 +562,7 @@ class ShootingGame(ShowBase):
         """Automatically fires a shot from the player's current position."""
         if not self.gameOver:
             shot = self.createSprite(loader.loadTexture(SHOT_IMAGE),
-                                        self.player.getX(), self.player.getY(), self.currentShotScale)
+                                         self.player.getX(), self.player.getY(), self.currentShotScale)
             self.shots.append(shot)
         return Task.again
 
@@ -566,11 +580,16 @@ class ShootingGame(ShowBase):
         return Task.again
 
     def spawnBonusTask(self, task):
-        """Spawns a new bonus every BONUS_SPAWN_INTERVAL seconds."""
+        """
+        Spawns a new bonus at one of two fixed positions: first quarter or third quarter
+        of the distance between LEFT_BOUND and RIGHT_BOUND.
+        """
         if self.gameOver:
             return Task.done
 
-        bonusX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
+        # Choose one of the two fixed positions randomly
+        bonusX = random.choice(BONUS_SPAWN_POSITIONS)
+
         bonus = self.createBonusSprite(
             bonusX,
             ENEMY_SPAWN_Y,
