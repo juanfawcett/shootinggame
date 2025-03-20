@@ -88,10 +88,10 @@ BACKGROUND_SCALE = 12
 
 # Enemy types: each entry contains hit points, movement speed, sprite scale, and image file
 ENEMY_TYPES = {
-    1: {"hp": 2,  "speed": 15.0 / 2, "scale": 1.0, "image": "assets/enemy2.png"},
-    2: {"hp": 4,  "speed": 12.0 / 2, "scale": 1.2, "image": "assets/enemy2.png"},
-    3: {"hp": 8,  "speed": 9.0 / 2,  "scale": 1.4, "image": "assets/enemy3.png"},
-    4: {"hp": 16, "speed": 6.0 / 2,  "scale": 1.7, "image": "assets/enemy.png"},
+    1: {"hp": 2,  "speed": 15.0 / 4, "scale": 1.0, "image": "assets/enemy2.png"},
+    2: {"hp": 4,  "speed": 12.0 / 4, "scale": 1.2, "image": "assets/enemy2.png"},
+    3: {"hp": 8,  "speed": 9.0 / 4,  "scale": 1.4, "image": "assets/enemy3.png"},
+    4: {"hp": 16, "speed": 6.0 / 4,  "scale": 1.7, "image": "assets/enemy.png"},
 }
 
 # Enemy spawn probabilities (45%, 25%, 20%, 10%)
@@ -540,7 +540,7 @@ class ShootingGame(ShowBase):
             # If shot is still active, check for collision with bonuses
             for bonus in self.bonuses[:]:
                 bonusPos = bonus.getPos()
-                if (shotPos - bonusPos).length() < 0.8:  # collision threshold
+                if (shotPos - bonusPos).length() < 2:  # collision threshold
                     # Increase bonus value by 1
                     value = bonus.getPythonTag("value")
                     new_value = min(value + 1, BONUS_MAX_VALUE)  # Cap at max value
