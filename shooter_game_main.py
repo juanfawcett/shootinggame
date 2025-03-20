@@ -3,102 +3,58 @@
 Panda3D Shooting Game with Third-Person Perspective and Background
 """
 
-from direct.showbase.ShowBase import ShowBase
-from direct.task import Task
-from direct.gui.OnscreenText import OnscreenText
-from panda3d.core import CardMaker, Vec3, TransparencyAttrib, Point3, loadPrcFileData, TextNode, LVecBase4f
+# Standard library imports
 import random
 import sys
 
-# ============================
-# CONFIGURATION PARAMETERS
-# ============================
+# Panda3D imports
+from direct.showbase.ShowBase import ShowBase
+from direct.task import Task
+from direct.gui.OnscreenText import OnscreenText
+from panda3d.core import (
+    CardMaker,
+    Vec3,
+    TransparencyAttrib,
+    loadPrcFileData,
+    TextNode,
+    LVecBase4f
+)
 
-# Game timings and speeds
-GAME_DURATION = 60.0          # seconds to survive
-SHOT_INTERVAL = 0.20          # seconds between shots
-ENEMY_SPAWN_INTERVAL = 1.0      # seconds between enemy spawns
-PLAYER_SPEED = 12.0           # player movement speed (units/sec)
-SHOT_SPEED = 30.0             # shot movement speed (units/sec)
-EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
-EXPLOSION_SPEED = 5.0         # Explosion movement speed (units/sec)
-BONUS_SPAWN_INTERVAL = 2.0     # seconds between bonus spawns
-
-# Screen shake parameters
-SHAKE_INTENSITY = 0.5         # Maximum offset for screen shake
-SHAKE_DURATION = 0.4          # Duration of the screen shake in seconds
-
-# Red filter parameters
-RED_FILTER_INTENSITY = 0.4    # Alpha value of the red filter (0.0 to 1.0)
-RED_FILTER_DURATION = 0.3     # Duration of the red filter in seconds
-
-# Screen / game area bounds and positions
-LEFT_BOUND = -3.5            # left-most x position for the player
-RIGHT_BOUND = 3.5            # right-most x position for the player
-PLAYER_START_X = 0.0          # initial player x position
-PLAYER_START_Y = -10.0         # fixed player y position (bottom of play area)
-ENEMY_SPAWN_Y = 26.0          # y position where enemies appear
-
-# Calculate bonus spawn positions (first quarter and third quarter of play area)
-TOTAL_WIDTH = RIGHT_BOUND - LEFT_BOUND
-BONUS_SPAWN_POSITIONS = [
-    LEFT_BOUND + (TOTAL_WIDTH * 0.25),   # First quarter
-    LEFT_BOUND + (TOTAL_WIDTH * 0.75)    # Third quarter
-]
-
-# Camera settings (third-person view)
-CAMERA_DISTANCE = 10.0        # Distance behind the player
-CAMERA_HEIGHT = 10.0          # Height above the player
-CAMERA_LOOK_AT_OFFSET = 10.0  # Look slightly ahead of the player
-
-# Scales for sprites
-PLAYER_SCALE = 2.0            # scale for the player sprite
-SHOT_SCALE = 0.6              # scale for the shot sprite
-EXPLOSION_SCALE = 0.5         # scale for the explosion sprite
-EXPLOSION_SCALE_MULTIPLIER = 1.1 # Multiplier for explosion scale relative to enemy scale
-BONUS_SCALE = 5.0             # scale for the bonus sprite
-
-# Bonus parameters
-BONUS_STARTING_VALUE = -10    # starting value for bonus
-BONUS_MAX_VALUE = 10      # maximum value for bonus
-BONUS_MIN_VALUE = -10      # minimum value for bonus
-BONUS_SPEED = 3.0          # bonus movement speed (units/sec)
-BONUS_POSITIVE_IMAGE = "assets/bonus_positive.png" # image for positive bonus
-BONUS_NEGATIVE_IMAGE = "assets/bonus_negative.png" # image for negative bonus
-BONUS_TRANSPARENCY = 0.6     # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
-
-# Window configuration parameters
-WINDOW_WIDTH = 450          # Width of the game window
-WINDOW_HEIGHT = 750         # Height of the game window
-WINDOW_TITLE = "Panda3D Shooting Game" # Title of the game window
-
-# PNG filenames (ensure these files are in your assets folder)
-CHARACTER_IMAGE = "assets/character.png"
-CHARACTER_IDLE_IMAGE = "assets/character_idle.png" # New idle image
-CHARACTER_LEFT_IMAGE = "assets/character_left.png" # New left movement image
-CHARACTER_RIGHT_IMAGE = "assets/character_right.png" # New right movement image
-SHOT_IMAGE = "assets/shot.png"
-EXPLOSION_IMAGE = "assets/explosion.png" # Filename for explosion image
-
-# Background parameters (adjust these to center the background)
-BACKGROUND_IMAGE = "assets/background.png"
-BACKGROUND_POS_X = 0.0          # X offset for the background
-BACKGROUND_POS_Y = -3.0          # Y offset for the background
-BACKGROUND_SCALE = 12
-
-# Enemy types: each entry contains hit points, movement speed, sprite scale, and image file
-ENEMY_TYPES = {
-    1: {"hp": 2,  "speed": 15.0 / 4, "scale": 1.0, "image": "assets/enemy2.png"},
-    2: {"hp": 4,  "speed": 12.0 / 4, "scale": 1.2, "image": "assets/enemy2.png"},
-    3: {"hp": 8,  "speed": 9.0 / 4,  "scale": 1.4, "image": "assets/enemy3.png"},
-    4: {"hp": 16, "speed": 6.0 / 4,  "scale": 1.7, "image": "assets/enemy.png"},
-}
-
-# Enemy spawn probabilities (45%, 25%, 20%, 10%)
-ENEMY_SPAWN_PROB = [0.45, 0.25, 0.20, 0.10]
-
-# Player starting life
-PLAYER_STARTING_LIFE = 3
+# Game configuration imports
+from game_config import (
+    # Window settings
+    WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE,
+    # Game parameters
+    GAME_DURATION, SHOT_INTERVAL, ENEMY_SPAWN_INTERVAL,
+    PLAYER_SPEED, SHOT_SPEED, EXPLOSION_DURATION,
+    EXPLOSION_SPEED, BONUS_SPAWN_INTERVAL,
+    # Screen shake and effects
+    SHAKE_INTENSITY, SHAKE_DURATION,
+    RED_FILTER_INTENSITY, RED_FILTER_DURATION,
+    # Game area bounds
+    LEFT_BOUND, RIGHT_BOUND, PLAYER_START_X,
+    PLAYER_START_Y, ENEMY_SPAWN_Y, BONUS_SPAWN_POSITIONS,
+    # Camera settings
+    CAMERA_DISTANCE, CAMERA_HEIGHT, CAMERA_LOOK_AT_OFFSET,
+    # Sprite scales
+    PLAYER_SCALE, SHOT_SCALE, EXPLOSION_SCALE,
+    EXPLOSION_SCALE_MULTIPLIER, BONUS_SCALE,
+    # Bonus parameters
+    BONUS_STARTING_VALUE, BONUS_MAX_VALUE, BONUS_MIN_VALUE,
+    BONUS_SPEED, BONUS_TRANSPARENCY,
+    # Asset paths
+    CHARACTER_IDLE_IMAGE,
+    CHARACTER_LEFT_IMAGE, CHARACTER_RIGHT_IMAGE,
+    SHOT_IMAGE, EXPLOSION_IMAGE,
+    BONUS_POSITIVE_IMAGE, BONUS_NEGATIVE_IMAGE,
+    BACKGROUND_IMAGE,
+    # Background settings
+    BACKGROUND_POS_X, BACKGROUND_POS_Y, BACKGROUND_SCALE,
+    # Enemy configuration
+    ENEMY_TYPES, ENEMY_SPAWN_PROB,
+    # Player configuration
+    PLAYER_STARTING_LIFE
+)
 
 # ============================
 # APPLY WINDOW CONFIGURATION
@@ -106,6 +62,7 @@ PLAYER_STARTING_LIFE = 3
 loadPrcFileData("", f"win-size {WINDOW_WIDTH} {WINDOW_HEIGHT}")
 loadPrcFileData("", f"window-title {WINDOW_TITLE}")
 loadPrcFileData("", "win-fixed-size 1")
+
 
 # ============================
 # GAME CLASS DEFINITION
@@ -122,10 +79,10 @@ class ShootingGame(ShowBase):
         # Initialize game state parameters
         self.gameOver = False
         self.gameStartTime = globalClock.getRealTime()
-        self.shots = []    # List to hold active shots
-        self.enemies = []  # List to hold active enemies
-        self.explosions = [] # List to hold active explosions
-        self.bonuses = []  # List to hold active bonuses
+        self.shots = []        # List to hold active shots
+        self.enemies = []      # List to hold active enemies
+        self.explosions = []   # List to hold active explosions
+        self.bonuses = []      # List to hold active bonuses
         self.keyMap = {"left": False, "right": False}
         self.playerLife = PLAYER_STARTING_LIFE
 
@@ -134,17 +91,16 @@ class ShootingGame(ShowBase):
         self.currentShotScale = SHOT_SCALE
 
         # New feature: win and stage tracking
-        self.winCount = 0      # Counts total wins (games won)
-        self.stage = 1        # Current stage (starts at 1)
-        self.lastWin = None    # Tracks if the last game ended in a win
+        self.winCount = 0       # Counts total wins (games won)
+        self.stage = 1          # Current stage (starts at 1)
+        self.lastWin = None     # Tracks if the last game ended in a win
 
-        # UI elements (timer, win count, life counter, and game status)
-        # Parent texts to fixed aspect2d nodes so that they remain visible regardless of window size.
+        # UI elements
         self.timerText = OnscreenText(
             text="Time: 0",
             pos=(0.05, -0.08),
             scale=0.08,
-            fg=(1,1,1,1),
+            fg=(1, 1, 1, 1),
             align=TextNode.ALeft,
             parent=base.a2dTopLeft
         )
@@ -152,7 +108,7 @@ class ShootingGame(ShowBase):
             text="Wins: 0",
             pos=(-0.05, -0.08),
             scale=0.08,
-            fg=(1,1,1,1),
+            fg=(1, 1, 1, 1),
             align=TextNode.ARight,
             parent=base.a2dTopRight
         )
@@ -160,7 +116,7 @@ class ShootingGame(ShowBase):
             text=f"Life: {self.playerLife}",
             pos=(0.05, -0.16),
             scale=0.08,
-            fg=(1,1,1,1),
+            fg=(1, 1, 1, 1),
             align=TextNode.ALeft,
             parent=base.a2dTopLeft
         )
@@ -185,12 +141,16 @@ class ShootingGame(ShowBase):
         }
 
         # Create player sprite with idle texture
-        self.player = self.createSprite(self.playerTextures["idle"],
-                                         PLAYER_START_X, PLAYER_START_Y, PLAYER_SCALE)
+        self.player = self.createSprite(
+            self.playerTextures["idle"],
+            PLAYER_START_X,
+            PLAYER_START_Y,
+            PLAYER_SCALE
+        )
 
         # Initialize camera position (Third-Person Perspective)
         self.updateCamera()
-        self.originalCameraPos = self.camera.getPos() # Store original camera position
+        self.originalCameraPos = self.camera.getPos()  # Store original camera position
 
         # Create the red filter and hide it initially
         self.redFilter = self.createRedFilter()
@@ -206,12 +166,21 @@ class ShootingGame(ShowBase):
 
         # Game tasks
         self.taskMgr.add(self.updateTask, "updateTask")
-        self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask,
-                                    "autoShootTask")
-        self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask,
-                                    "spawnEnemyTask")
-        self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask,
-                                    "spawnBonusTask")
+        self.taskMgr.doMethodLater(
+            self.currentShotInterval,
+            self.autoShootTask,
+            "autoShootTask"
+        )
+        self.taskMgr.doMethodLater(
+            ENEMY_SPAWN_INTERVAL,
+            self.spawnEnemyTask,
+            "spawnEnemyTask"
+        )
+        self.taskMgr.doMethodLater(
+            BONUS_SPAWN_INTERVAL,
+            self.spawnBonusTask,
+            "spawnBonusTask"
+        )
 
     def createRedFilter(self):
         """Creates the red filter overlay."""
@@ -341,7 +310,6 @@ class ShootingGame(ShowBase):
 
         return bonus_sprite
 
-
     def removeExplosionTask(self, explosion_sprite):
         """Task to remove the explosion sprite after a delay."""
         explosion_sprite.removeNode()
@@ -460,7 +428,6 @@ class ShootingGame(ShowBase):
                 bonus.removeNode()
                 self.bonuses.remove(bonus)
 
-
     def applyBonusEffect(self, value):
         """Apply bonus effect to player's shot parameters based on bonus value."""
         # Calculate modifier based on bonus value (-10 = half, 0 = no change, 10 = double)
@@ -504,7 +471,7 @@ class ShootingGame(ShowBase):
             # Check for collision with enemies
             for enemy in self.enemies[:]:
                 enemyPos = enemy.getPos()
-                if (shotPos - enemyPos).length() < 0.8:  # collision threshold
+                if (shotPos - enemyPos).length() < 0.55:  # collision threshold
                     # Reduce enemy HP by 1
                     hp = enemy.getPythonTag("hp")
                     enemy.setPythonTag("hp", hp - 1)
