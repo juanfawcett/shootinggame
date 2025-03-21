@@ -4,13 +4,13 @@ Configuración del juego Panda3D Shooting Game
 
 # Game timings and speeds
 GAME_DURATION = 60.0          # seconds to survive
-SHOT_INTERVAL = 0.20          # seconds between shots
+SHOT_INTERVAL = 0.5          # seconds between shots
 ENEMY_SPAWN_INTERVAL = 1.0    # seconds between enemy spawns
 PLAYER_SPEED = 12.0           # player movement speed (units/sec)
 SHOT_SPEED = 30.0             # shot movement speed (units/sec)
 EXPLOSION_DURATION = 0.5      # Explosion display duration in seconds
 EXPLOSION_SPEED = 5.0         # Explosion movement speed (units/sec)
-BONUS_SPAWN_INTERVAL = 15.0   # seconds between bonus spawns
+BONUS_SPAWN_INTERVAL = 10.0   # seconds between bonus spawns
 
 # Screen shake parameters
 SHAKE_INTENSITY = 0.5         # Maximum offset for screen shake
@@ -47,9 +47,9 @@ EXPLOSION_SCALE_MULTIPLIER = 1.1  # Multiplier for explosion scale relative to e
 BONUS_SCALE = 5.0             # scale for the bonus sprite
 
 # Bonus parameters
-BONUS_STARTING_VALUE = -10    # starting value for bonus
+BONUS_STARTING_VALUE = -5     # starting value for bonus
 BONUS_MAX_VALUE = 10          # maximum value for bonus
-BONUS_MIN_VALUE = -10         # minimum value for bonus
+BONUS_MIN_VALUE = BONUS_STARTING_VALUE         # minimum value for bonus
 BONUS_SPEED = 3.0             # bonus movement speed (units/sec)
 BONUS_TRANSPARENCY = 0.6      # transparency value for bonuses (0.0=fully transparent, 1.0=fully opaque)
 
@@ -75,10 +75,10 @@ BACKGROUND_SCALE = 12
 
 # Enemy types configuration
 ENEMY_TYPES = {
-    1: {"hp": 2,  "speed": 15.0 / 4, "scale": 1.0, "image": "assets/enemy2.png"},
-    2: {"hp": 4,  "speed": 12.0 / 4, "scale": 1.2, "image": "assets/enemy2.png"},
-    3: {"hp": 8,  "speed": 9.0 / 4,  "scale": 1.4, "image": "assets/enemy3.png"},
-    4: {"hp": 16, "speed": 6.0 / 4,  "scale": 1.7, "image": "assets/enemy.png"},
+    1: {"hp": 1,  "speed": 15.0 / 4, "scale": 1.0, "image": "assets/enemy2.png"},
+    2: {"hp": 2,  "speed": 12.0 / 4, "scale": 1.2, "image": "assets/enemy2.png"},
+    3: {"hp": 6,  "speed": 9.0 / 5,  "scale": 1.4, "image": "assets/enemy3.png"},
+    4: {"hp": 8, "speed": 6.0 / 5,  "scale": 1.7, "image": "assets/enemy.png"},
 }
 
 # Enemy spawn probabilities (45%, 25%, 20%, 10%)
