@@ -294,7 +294,7 @@ class ShootingGame(ShowBase):
         - speed: Movement speed
         """
         # Choose the appropriate texture based on the value
-        texture = self.bonusTextures["positive"] if value > 0 else self.bonusTextures["negative"]
+        texture = self.bonusTextures["positive"] if value >= 0 else self.bonusTextures["negative"]
 
         # Create bonus sprite with transparency setting from configuration
         bonus_sprite = self.createSprite(texture, x, y, scale, BONUS_TRANSPARENCY)
@@ -307,6 +307,24 @@ class ShootingGame(ShowBase):
         # while keeping the vertical scale (Y and Z) the same.
         horiz_scale = (RIGHT_BOUND - LEFT_BOUND)
         bonus_sprite.setScale(horiz_scale, scale, scale)
+
+        # Create text to display the value using OnscreenText
+        text = OnscreenText(
+            text=str(value),
+            scale=0.2,
+            fg=(1, 1, 1, 1),  # Color blanco
+            align=TextNode.ACenter,
+            mayChange=True,  # Permitir cambios en el texto
+            parent=bonus_sprite  # Adjuntar al bonus sprite
+        )
+        
+        # Configurar el texto para que esté siempre visible
+        text.setPos(0, -0.06)  # Posicionar justo sobre el bonus (reducido de 1 a 0.2)
+        text.setBin('fixed', 1)  # Asegurar que se renderice después del bonus
+        text.setDepthTest(False)  # Desactivar prueba de profundidad
+        text.setDepthWrite(False)  # Desactivar escritura de profundidad
+        
+        bonus_sprite.setPythonTag("text", text)  # Guardar referencia al texto
 
         return bonus_sprite
 
@@ -418,13 +436,19 @@ class ShootingGame(ShowBase):
                 # Check for collision at player's y position
                 if abs(bonus.getX() - self.player.getX()) < 1.0:
                     self.applyBonusEffect(bonus.getPythonTag("value"))
-                # Remove bonus regardless of collision
+                # Remove bonus and its text regardless of collision
+                text = bonus.getPythonTag("text")
+                if text:
+                    text.destroy()
                 bonus.removeNode()
                 self.bonuses.remove(bonus)
                 continue
 
             # Remove bonus if it goes out of bounds
             if bonus.getY() < PLAYER_START_Y - 10:
+                text = bonus.getPythonTag("text")
+                if text:
+                    text.destroy()
                 bonus.removeNode()
                 self.bonuses.remove(bonus)
 
@@ -508,22 +532,29 @@ class ShootingGame(ShowBase):
             for bonus in self.bonuses[:]:
                 bonusPos = bonus.getPos()
                 if (shotPos - bonusPos).length() < 2:  # collision threshold
-                    # Increase bonus value by 1
+                    # Increase bonus value by exactly 1
                     value = bonus.getPythonTag("value")
-                    new_value = min(value + 1, BONUS_MAX_VALUE)  # Cap at max value
+                    new_value = min(value + 1, BONUS_MAX_VALUE)  # Ensure it doesn't exceed the max
+
+                    # Update the stored value
                     bonus.setPythonTag("value", new_value)
 
-                    # Update bonus texture based on new value
-                    if value <= 0 and new_value > 0:  # Changed from negative to positive
+                    # Update the bonus texture based on new value
+                    if new_value > 0:  # Switch to positive texture if value is now positive
                         bonus.setTexture(self.bonusTextures["positive"])
+                    else:
+                        bonus.setTexture(self.bonusTextures["negative"])
+                    
+                    # Update the bonus value text
+                    text = bonus.getPythonTag("text")
+                    if text:
+                        text.setText(str(new_value))
 
-                    # Only remove the shot if the bonus has a negative value
-                    # Positive-value bonuses allow bullets to continue
-                    if new_value <= 0:
-                        shot.removeNode()
-                        self.shots.remove(shot)
-                        break  # Shot can only hit one bonus if removed
-                    # Otherwise, the shot continues and can hit more bonuses
+                    # Remove shot after it impacts a bonus
+                    shot.removeNode()
+                    self.shots.remove(shot)
+                    break  # Shot can only hit one bonus at a time
+
 
     def autoShootTask(self, task):
         """Automatically fires a shot from the player's current position."""
@@ -606,6 +637,9 @@ class ShootingGame(ShowBase):
             self.explosions = []
 
             for bonus in self.bonuses:
+                text = bonus.getPythonTag("text")
+                if text:
+                    text.destroy()
                 bonus.removeNode()
             self.bonuses = []
 
