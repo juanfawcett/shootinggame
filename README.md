@@ -115,6 +115,23 @@ Solución implementada
    • Verificar orden descendente.
    • Verificar persistencia entre ejecuciones.
 
+### Iniciativa propia
+
+El juego no cuenta con un menú de bienvenida antes de que el juego inicie.
+
+### Iniciativa del cliente
+
+"El juego no tiene diferentes nivels de dificultad, está muy difícil"
+
+#### Selector de niveles
+
+- Se añadió un selector inicial (Low, Medium, Advanced) antes de iniciar el juego.
+- La selección aplica multiplicadores a: intervalo de disparo, intervalo de spawn de enemigos y velocidad de enemigos.
+
+#### Acción
+
+Se agrega un texto al inicio que indica al usuario que debe presionar enter para poder iniciar el juego
+
 ### 6.3. Mantenimiento adaptativo
 
 Se ajustó el videojuego para soportar cambios en versiones actuales de Pygame (ej: warnings y sintaxis).
