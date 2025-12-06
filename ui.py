@@ -41,8 +41,18 @@ def create_ui_texts(game):
         align=TextNode.ARight,
         parent=base.a2dTopRight
     )
+    # --- NUEVO: Texto para el Top 3 ---
+    highScoreText = OnscreenText(
+        text="Top 3:\n--\n--\n--",
+        pos=(-0.05, -0.16),      # Debajo de Wins
+        scale=0.06,              # Un poco más pequeño
+        fg=(1, 1, 0, 1),         # Amarillo
+        align=TextNode.ARight,
+        parent=base.a2dTopRight
+    )
+    # ----------------------------------
     lifeText = OnscreenText(
-        text=f"Life: 0",
+        text=f"Life: {game.playerLife}",
         pos=(0.05, -0.16),
         scale=0.08,
         fg=(1, 1, 1, 1),
@@ -55,4 +65,5 @@ def create_ui_texts(game):
         scale=0.1,
         fg=(1, 0, 0, 1)
     )
-    return timerText, winCountText, lifeText, statusText
+    # Retornamos también highScoreText
+    return timerText, winCountText, lifeText, statusText, highScoreText

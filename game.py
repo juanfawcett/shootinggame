@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import random
 import sys
+import json  # <--- Necesario
+import os    # <--- Necesario
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
@@ -47,10 +49,17 @@ class ShootingGame(ShowBase):
         self.winCount = 0
         self.stage = 1
         self.lastWin = None
+        
+        # --- Score Acumulativo ---
+        self.accumulatedTime = 0.0
 
         # Background & UI (use helpers)
         self.background = create_background(self)
-        self.timerText, self.winCountText, self.lifeText, self.statusText = create_ui_texts(self)
+        # Desempaquetamos la nueva variable highScoreText
+        self.timerText, self.winCountText, self.lifeText, self.statusText, self.highScoreText = create_ui_texts(self)
+
+        # Actualizar texto de Top 3 al inicio
+        self.update_high_score_text()
 
         # Textures
         self.playerTextures = {
@@ -87,6 +96,36 @@ class ShootingGame(ShowBase):
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
         self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
         self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
+
+    # --- Persistencia de Datos (JSON) ---
+    def load_scores(self):
+        if os.path.exists("highscores.json"):
+            try:
+                with open("highscores.json", "r") as f:
+                    return json.load(f)
+            except:
+                return []
+        return []
+
+    def save_score(self, score):
+        scores = self.load_scores()
+        scores.append(score)
+        scores.sort(reverse=True)
+        scores = scores[:3]  # Guardar solo Top 3
+        with open("highscores.json", "w") as f:
+            json.dump(scores, f)
+        self.update_high_score_text()
+
+    def update_high_score_text(self):
+        scores = self.load_scores()
+        # Formatear texto para mostrar los 3 mejores
+        text_content = "Top 3:\n"
+        for i in range(3):
+            if i < len(scores):
+                text_content += f"{i+1}. {scores[i]}s\n"
+            else:
+                text_content += f"{i+1}. --\n"
+        self.highScoreText.setText(text_content)
 
     # --- UI / camera / input helpers ---
     def setKey(self, key, value):
@@ -310,14 +349,27 @@ class ShootingGame(ShowBase):
     def endGame(self, win):
         self.gameOver = True
         self.lastWin = win
+        
+        # 1. Calcular el tiempo total real (Acumulado + Actual)
+        current_stage_time = globalClock.getRealTime() - self.gameStartTime
+        total_score_real = self.accumulatedTime + current_stage_time
+        final_score_display = round(total_score_real, 2)
+        
+        # 2. Guardar el puntaje (siempre guardamos el total logrado)
+        self.save_score(final_score_display)
+
         if win:
+            # Si gana, acumulamos el tiempo para la siguiente ronda
+            self.accumulatedTime += current_stage_time
+
             self.winCount += 1
             self.stage += 1
             self.winCountText.setText(f"Wins: {self.winCount}")
-            self.statusText.setText(f"You Win! Stage {self.stage} starting soon...")
+            self.statusText.setText(f"You Win! Total: {final_score_display}s. Next stage...")
             self.taskMgr.doMethodLater(3.0, self.restartGameTask, "restartGameTask")
         else:
-            self.statusText.setText("Game Over! Press Enter to restart.")
+            self.statusText.setText(f"Game Over! Final: {final_score_display}s. Press Enter.")
+            # Si pierde, marcamos stage 1 para borrar el acumulado al reiniciar
             self.stage = 1
 
     def restartGameTask(self, task):
@@ -353,6 +405,14 @@ class ShootingGame(ShowBase):
             self.timerText.setText("Time: 0")
             self.statusText.setText("")
             self.gameOver = False
+            
+            # --- Lógica de Reinicio de Acumulado ---
+            if self.stage == 1:
+                self.accumulatedTime = 0.0
+                self.winCount = 0
+                self.winCountText.setText("Wins: 0")
+            # ---------------------------------------
+
             self.taskMgr.remove("spawnEnemyTask")
             self.taskMgr.remove("spawnBonusTask")
             self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
