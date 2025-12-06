@@ -173,3 +173,46 @@ El proceso de mantenimiento aplicado permitió:
 - Aplicar técnicas profesionales como reingeniería, refactorización e ingeniería inversa.
 - Mantener una documentación detallada conforme a las rúbricas del módulo.
 - El videojuego ahora es más estable, más funcional, más fácil de mantener y alineado con las expectativas del cliente.
+
+## 11. Cambios ejecutados Niveles de dificultad
+
+Se documentan los cambios implementados durante el mantenimiento:
+
+1. Selector de niveles
+   - Se añadió un selector inicial (Low, Medium, Advanced) antes de iniciar el juego.
+   - La selección aplica multiplicadores a: intervalo de disparo, intervalo de spawn de enemigos y velocidad de enemigos.
+
+2. Eliminación de números mágicos
+   - Todas las constantes de juego, posiciones y parámetros visuales fueron extraídas a `game_config.py`.
+   - Nuevas constantes: parámetros del selector de niveles, márgenes off-screen, tolerancias de colisión, escalas y rutas de assets.
+
+3. Configuración por dificultad
+   - Se añadió `DIFFICULTY_SETTINGS` en `game_config.py` con los multiplicadores para `low`, `medium` y `advanced`.
+   - `ShootingGame` usa esos valores para ajustar `currentShotInterval`, `enemy_spawn_interval` y velocidad de enemigos.
+
+4. Gestión de tareas y reinicio
+   - Las tareas principales (`updateTask`, `autoShootTask`, `spawnEnemyTask`, `spawnBonusTask`) se inician solo después de seleccionar nivel.
+   - `restartGame` respeta la dificultad seleccionada y restablece intervalos y tareas correctamente.
+
+5. Bonificaciones y disparo automático
+   - `applyBonusEffect` recalcula el intervalo y la escala de disparo en tiempo real y reinicia la tarea de auto disparo.
+   - Los bonuses usan posiciones definidas en la configuración y cambian textura según su valor.
+
+6. Corrección de colisiones (mantenimiento correctivo)
+   - Se corrigió el procesamiento múltiple de daño por colisión para evitar decrementos excesivos de vida.
+   - Se añadió un breve periodo de invulnerabilidad tras recibir daño (cooldown) y se normalizó la lógica de detección.
+
+7. Persistencia de records (mejora perfectiva)
+   - Implementación de `highscores.json` y módulo `score_manager.py` para mantener top 5 de mejores tiempos.
+   - Menú opcional para mostrar records en la pantalla inicial.
+
+8. Refactor y adaptaciones
+   - Reorganización del código en funciones y módulos (separación de configuración, manejo de scores).
+   - Ajustes de compatibilidad con versiones actuales de Panda3D/Pygame y rutas de assets.
+
+9. Beneficios
+   - Facilita tuning y pruebas al centralizar parámetros.
+   - Permite cambiar dificultad sin tocar código.
+   - Mejora la estabilidad y mantenibilidad del juego.
+
+(Ver los archivos modificados y los commits para detalles técnicos y pruebas realizadas.)
