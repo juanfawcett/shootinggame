@@ -36,7 +36,7 @@ class ShootingGame(ShowBase):
         self.disableMouse()
 
         # State
-        self.gameOver = True
+        self.gameOver = False
         self.menuActive = True
         self.difficultyName = DEFAULT_DIFFICULTY
         self.difficultyPreset = DIFFICULTY_PRESETS[self.difficultyName]
@@ -67,9 +67,6 @@ class ShootingGame(ShowBase):
 
         # Actualizar texto de Top 3 al inicio
         self.update_high_score_text()
-
-        # Menú de bienvenida
-        self.statusText.setText(f"Shooting Game! Press Enter to start.")
 
         # Textures
         self.playerTextures = {
