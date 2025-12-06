@@ -403,24 +403,39 @@ class ShootingGame(ShowBase):
         for enemy in self.enemies[:]:
             speed = enemy.getPythonTag("speed")
             enemy.setY(enemy.getY() - speed * dt)
-            # Check for collision with the player (simple horizontal distance check)
+            
+            # Verificamos si el enemigo cruzó la línea del jugador
             if enemy.getY() <= PLAYER_START_Y:
-                # Check collision when enemy reaches player's y coordinate
+                
+                # --- CORRECCIÓN DEL BUG ---
+                # Verificamos colisión directa (hitbox)
                 if abs(enemy.getX() - self.player.getX()) < 1.0:
                     self.playerLife -= 1
                     self.lifeText.setText(f"Life: {self.playerLife}")
                     self.startScreenShake()
                     self.showRedFilter()
+                    
+                    # Eliminamos el enemigo inmediatamente
+                    enemy.removeNode()
+                    self.enemies.remove(enemy)
+                    
                     if self.playerLife <= 0:
                         self.endGame(win=False)
-                    # In either case (collision or just reaching bottom), reduce life and remove the enemy
-                if enemy in self.enemies: # Check if enemy was already removed due to collision
+                    
+                    continue # <--- ESTA LÍNEA ES LA SOLUCIÓN: Evita doble castigo
+                
+                # Si el enemigo pasó la línea pero no nos chocó (opcional: daño por dejar pasar)
+                # Como el código original restaba vida al pasar, mantenemos esa lógica
+                # pero aseguramos que sea un evento separado.
+                if enemy in self.enemies: 
                     self.playerLife -= 1
                     self.lifeText.setText(f"Life: {self.playerLife}")
                     self.startScreenShake()
                     self.showRedFilter()
+                    
                     enemy.removeNode()
                     self.enemies.remove(enemy)
+                    
                     if self.playerLife <= 0:
                         self.endGame(win=False)
                 continue
@@ -673,3 +688,4 @@ class ShootingGame(ShowBase):
 
 game = ShootingGame()
 game.run()
+
