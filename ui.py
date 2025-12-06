@@ -59,6 +59,14 @@ def create_ui_texts(game):
         align=TextNode.ALeft,
         parent=base.a2dTopLeft
     )
+    difficult = OnscreenText(
+        text=f"Difficult: ",
+        pos=(0.05, -0.24),
+        scale=0.08,
+        fg=(1, 1, 1, 1),
+        align=TextNode.ALeft,
+        parent=base.a2dTopLeft
+    )
     statusText = OnscreenText(
         text="",
         pos=(0, 0),
@@ -66,4 +74,4 @@ def create_ui_texts(game):
         fg=(1, 0, 0, 1)
     )
     # Retornamos también highScoreText
-    return timerText, winCountText, lifeText, statusText, highScoreText
+    return timerText, winCountText, lifeText, statusText, highScoreText, difficult
