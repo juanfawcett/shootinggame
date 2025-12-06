@@ -3,6 +3,7 @@ import random
 import sys
 import json  # <--- Necesario
 import os    # <--- Necesario
+import copy
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
@@ -22,7 +23,8 @@ from game_config import (
     CHARACTER_IDLE_IMAGE, CHARACTER_LEFT_IMAGE, CHARACTER_RIGHT_IMAGE,
     SHOT_IMAGE, EXPLOSION_IMAGE, BONUS_POSITIVE_IMAGE, BONUS_NEGATIVE_IMAGE,
     BACKGROUND_IMAGE, BACKGROUND_POS_X, BACKGROUND_POS_Y, BACKGROUND_SCALE,
-    ENEMY_TYPES, ENEMY_SPAWN_PROB, PLAYER_STARTING_LIFE
+    ENEMY_TYPES, ENEMY_SPAWN_PROB, PLAYER_STARTING_LIFE,
+    DIFFICULTY_PRESETS, DEFAULT_DIFFICULTY
 )
 
 from sprites import create_sprite, create_explosion_sprite, create_bonus_sprite
@@ -35,13 +37,18 @@ class ShootingGame(ShowBase):
 
         # State
         self.gameOver = False
+        self.menuActive = True
+        self.difficultyName = DEFAULT_DIFFICULTY
+        self.difficultyPreset = DIFFICULTY_PRESETS[self.difficultyName]
+        self.basePlayerLife = PLAYER_STARTING_LIFE
+
         self.gameStartTime = globalClock.getRealTime()
         self.shots = []
         self.enemies = []
         self.explosions = []
         self.bonuses = []
         self.keyMap = {"left": False, "right": False}
-        self.playerLife = PLAYER_STARTING_LIFE
+        self.playerLife = 0  # se setea cuando se selecciona dificultad
 
         self.currentShotInterval = SHOT_INTERVAL
         self.currentShotScale = SHOT_SCALE
@@ -49,14 +56,14 @@ class ShootingGame(ShowBase):
         self.winCount = 0
         self.stage = 1
         self.lastWin = None
-        
+
         # --- Score Acumulativo ---
         self.accumulatedTime = 0.0
 
         # Background & UI (use helpers)
         self.background = create_background(self)
         # Desempaquetamos la nueva variable highScoreText
-        self.timerText, self.winCountText, self.lifeText, self.statusText, self.highScoreText = create_ui_texts(self)
+        self.timerText, self.winCountText, self.lifeText, self.statusText, self.highScoreText,self.difficultText = create_ui_texts(self)
 
         # Actualizar texto de Top 3 al inicio
         self.update_high_score_text()
@@ -88,14 +95,20 @@ class ShootingGame(ShowBase):
         self.accept("arrow_left-up", self.setKey, ["left", False])
         self.accept("arrow_right", self.setKey, ["right", True])
         self.accept("arrow_right-up", self.setKey, ["right", False])
-        self.accept("enter", self.restartGame)
+        # enter: si el menú está activo, inicia con la dificultad por defecto; si el juego terminó, reinicia.
+        self.accept("enter", self.handleEnter)
         self.accept("escape", sys.exit)
+        # teclas para seleccionar dificultad desde el menú
+        self.accept("1", self.onDifficultyKey, ["Easy"])
+        self.accept("2", self.onDifficultyKey, ["Medium"])
+        self.accept("3", self.onDifficultyKey, ["Hard"])
 
         # Tasks
         self.taskMgr.add(self.updateTask, "updateTask")
-        self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
-        self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
-        self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
+        # Las tareas de autoShoot y spawn se iniciarán después de seleccionar dificultad
+
+        # Menu UI (antes de empezar el juego)
+        self.createDifficultyMenu()
 
     # --- Persistencia de Datos (JSON) ---
     def load_scores(self):
@@ -175,6 +188,8 @@ class ShootingGame(ShowBase):
 
     # --- Main update loop ---
     def updateTask(self, task):
+        if self.menuActive:
+            return Task.cont
         if self.gameOver:
             return Task.cont
         dt = globalClock.getDt()
@@ -307,19 +322,20 @@ class ShootingGame(ShowBase):
 
     # --- Tasks that spawn / shoot ---
     def autoShootTask(self, task):
-        if not self.gameOver:
+        if not self.gameOver and not self.menuActive:
             shot = create_sprite(self, loader.loadTexture(SHOT_IMAGE), self.player.getX(), self.player.getY(), self.currentShotScale)
             self.shots.append(shot)
         return Task.again
 
     def spawnEnemyTask(self, task):
-        if self.gameOver:
+        if self.gameOver or self.menuActive:
             return Task.done
-        etype = random.choices(list(ENEMY_TYPES.keys()), ENEMY_SPAWN_PROB)[0]
+        etype = random.choices(list(self.enemy_types.keys()), ENEMY_SPAWN_PROB)[0]
         enemyX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
-        enemy = create_sprite(self, loader.loadTexture(ENEMY_TYPES[etype]["image"]), enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
-        enemy.setPythonTag("hp", ENEMY_TYPES[etype]["hp"])
-        enemy.setPythonTag("speed", ENEMY_TYPES[etype]["speed"])
+        cfg = self.enemy_types[etype]
+        enemy = create_sprite(self, loader.loadTexture(cfg["image"]), enemyX, ENEMY_SPAWN_Y, cfg["scale"])
+        enemy.setPythonTag("hp", cfg["hp"])
+        enemy.setPythonTag("speed", cfg["speed"])
         self.enemies.append(enemy)
         return Task.again
 
@@ -347,14 +363,21 @@ class ShootingGame(ShowBase):
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
 
     def endGame(self, win):
+
+        # --- NUEVO: CLÁUSULA DE GUARDIA ---
+        # Si la función ya se ejecutó (gameOver es True), no hacemos nada más.
+        # Esto evita que se guarde el puntaje dos veces en el mismo frame.
+        if self.gameOver:
+            return
+        # ----------------------------------
         self.gameOver = True
         self.lastWin = win
-        
+
         # 1. Calcular el tiempo total real (Acumulado + Actual)
         current_stage_time = globalClock.getRealTime() - self.gameStartTime
         total_score_real = self.accumulatedTime + current_stage_time
         final_score_display = round(total_score_real, 2)
-        
+
         # 2. Guardar el puntaje (siempre guardamos el total logrado)
         self.save_score(final_score_display)
 
@@ -405,7 +428,7 @@ class ShootingGame(ShowBase):
             self.timerText.setText("Time: 0")
             self.statusText.setText("")
             self.gameOver = False
-            
+
             # --- Lógica de Reinicio de Acumulado ---
             if self.stage == 1:
                 self.accumulatedTime = 0.0
@@ -417,3 +440,64 @@ class ShootingGame(ShowBase):
             self.taskMgr.remove("spawnBonusTask")
             self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
             self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
+
+    # --- Nuevo: menú / dificultad ---
+    def createDifficultyMenu(self):
+        # Textos del menú
+        self.menuTitle = OnscreenText(text="Select Difficulty", scale=0.12, pos=(0, 0.6), fg=(1,1,0,1), mayChange=False)
+        self.menuOption1 = OnscreenText(text="1 - Easy", scale=0.08, pos=(0, 0.2), fg=(0.6,1,0.6,1), mayChange=False)
+        self.menuOption2 = OnscreenText(text="2 - Medium (default)", scale=0.08, pos=(0, 0.0), fg=(1,1,1,1), mayChange=False)
+        self.menuOption3 = OnscreenText(text="3 - Hard", scale=0.08, pos=(0, -0.2), fg=(1,0.6,0.6,1), mayChange=False)
+        self.menuHint = OnscreenText(text="Press 1/2/3 or Enter to start", scale=0.06, pos=(0, -0.45), fg=(1,1,1,1), mayChange=False)
+
+    def destroyDifficultyMenu(self):
+        for node in [getattr(self, n) for n in ("menuTitle","menuOption1","menuOption2","menuOption3","menuHint") if hasattr(self,n)]:
+            try:
+                node.destroy()
+            except Exception:
+                pass
+
+    def onDifficultyKey(self, name):
+        if not self.menuActive:
+            return
+        self.applyDifficulty(name)
+        self.startGame()
+
+    def handleEnter(self):
+        if self.menuActive:
+            # iniciar con la dificultad por defecto
+            self.applyDifficulty(DEFAULT_DIFFICULTY)
+            self.startGame()
+            return
+        if self.gameOver:
+            self.restartGame()
+
+    def applyDifficulty(self, name):
+        preset = DIFFICULTY_PRESETS.get(name, DIFFICULTY_PRESETS[DEFAULT_DIFFICULTY])
+        self.difficultyName = name
+        self.difficultyPreset = preset
+        # copiar y escalar enemy types (no tocamos config original)
+        self.enemy_types = copy.deepcopy(ENEMY_TYPES)
+        for k, v in self.enemy_types.items():
+            v["speed"] = v["speed"] * preset["enemy_speed_mul"]
+        # ajustar intervalos y disparo
+        self.currentEnemySpawnInterval = ENEMY_SPAWN_INTERVAL * preset["enemy_spawn_interval_mul"]
+        self.currentShotInterval = SHOT_INTERVAL * preset["shot_interval_mul"]
+        self.basePlayerLife = preset["player_life"]
+        self.playerLife = self.basePlayerLife
+        self.lifeText.setText(f"Life: {self.playerLife}")
+        # actualizar texto de estado
+        self.difficultText.setText(f"Difficulty: {name}")
+
+    def startGame(self):
+        # ocultar menú y arrancar tareas principales
+        self.destroyDifficultyMenu()
+        self.menuActive = False
+        self.gameStartTime = globalClock.getRealTime()
+        # arrancar tareas con los intervalos adaptados
+        self.taskMgr.remove("autoShootTask")
+        self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
+        self.taskMgr.remove("spawnEnemyTask")
+        self.taskMgr.doMethodLater(self.currentEnemySpawnInterval, self.spawnEnemyTask, "spawnEnemyTask")
+        self.taskMgr.remove("spawnBonusTask")
+        self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
