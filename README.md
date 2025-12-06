@@ -32,8 +32,8 @@ Se realiza fork con link https://github.com/juanfawcett/shootinggame, para manej
 ### 3.3. Tecnología
 
 - Lenguaje principal: Python
-- Motor/base: Pygame (Panda3d)
-- Arquitectura: Monolítica estructurada
+- Motor/base: Panda3D
+- Arquitectura: Monolítica estructurada (Migrada a Modular)
 - Patrón principal: Loop de juego clásico
 
 ## 4. Organización del equipo
@@ -53,7 +53,7 @@ El proceso se basó en el modelo clásico de mantenimiento sugerido por el está
 - Análisis del requerimiento o problema reportado
 - Clasificación del tipo de mantenimiento
 - Planificación de tareas por cada día
-- jecución de mantenimiento (codificación)
+- Ejecución de mantenimiento (codificación)
 - Pruebas y verificación
 - Documentación del cambio
 - Actualización del repositorio
@@ -62,130 +62,120 @@ El proceso se basó en el modelo clásico de mantenimiento sugerido por el está
 
 ### 6.1. Mantenimiento correctivo
 
-#### Bug reportado:
-
+#### Bug reportado 1:
 “La nave tiene 3 puntos de vida; pero a veces con solo una explosión lo destruyen.”
-Análisis
 
+**Análisis**
 - El error es intermitente, lo cual sugiere un cálculo incorrecto de colisiones.
-- Se revisó el código.
-- Se identificó que la función que detecta impacto registra múltiples colisiones en un solo frame.
+- Se revisó el código y se identificó que la función que detecta impacto registra múltiples colisiones en un solo frame.
 - El daño se procesa varias veces si la nave permanece solapada con el sprite de explosión.
 
-#### Solución implementada
+**Solución implementada**
+- Se modificó la lógica de colisión para eliminar el nodo del enemigo inmediatamente tras el primer contacto.
+- Se implementó el uso de `continue` en el bucle de actualización para evitar re-procesar el mismo objeto.
 
-- Se añadió un estado de invulnerabilidad breve (cooldown de impacto).
-- Se normalizó el cálculo para que solo se procese un evento de daño por explosión.
-  Pruebas
-- Se realizaron pruebas de colisión.
-- Se probó en gameplay que la nave recibe exactamente 1 daño por explosión.
+**Pruebas**
+- Se realizaron pruebas de colisión y se verificó en gameplay que la nave recibe exactamente 1 daño por impacto.
 
-#### Conclusión
+#### Bug reportado 2: [BUG-0003] Duplicidad en el Score
+**Análisis**
+- Se detectó que el sistema realizaba una acumulación errónea en el historial de puntajes al perder la partida.
+- La función de finalización (`endGame`) se ejecutaba múltiples veces consecutivas en el mismo frame debido a la falta de validación de estado.
 
-El error quedó corregido. Se registró como mantenimiento correctivo.
+**Solución implementada**
+- Se agregó una **Cláusula de Guardia** al inicio del método `endGame`. Ahora verifica si `gameOver` es True; si lo es, detiene la ejecución inmediatamente.
+
+**Conclusión**
+Los errores quedaron corregidos. Se registraron como mantenimiento correctivo.
 
 ### 6.2. Mantenimiento perfectivo (nueva funcionalidad)
 
 ### Iniciativa propia
-
 Refactorización ligera:
-
-- Separación de archivos por tipo de responsabilidad.
+- Separación de archivos por tipo de responsabilidad (`game.py`, `ui.py`, `sprites.py`).
 
 #### Solicitud del cliente:
-
 “Guardar un histórico de los mejores tiempos.”
 
-#### Análisis
-
+**Análisis**
 El juego no posee persistencia. No existe un módulo para almacenar records.
-Solución implementada
 
-- Crear archivo highscores.json persistente.
+**Solución implementada**
+- [cite_start]Crear archivo `highscores.json` persistente[cite: 25].
 - Modificar el sistema de fin de partida para:
+    1. Calcular tiempo sobrevivido de forma **acumulativa** (sumando el tiempo de todas las etapas/stages superadas antes de morir).
+    2. Guardar y ordenar los tiempos de mayor a menor.
+    3. Mostrar en la interfaz (HUD) el **Top 3** de mejores tiempos.
 
-1. Calcular tiempo sobrevivido.
-2. Guardarlo si está dentro del top 5.
-3. Mostrar un menú de records.
-   Cambios
-   • Se creó un nuevo módulo score_manager.py.
-   • Se agregó un menú opcional en la pantalla inicial.
-   Pruebas
-   • Insertar tiempos simulados.
-   • Verificar orden descendente.
-   • Verificar persistencia entre ejecuciones.
+**Cambios**
+- Se integró la librería `json` y `os` en `game.py`.
+- Se actualizó `ui.py` para renderizar la lista de puntajes dinámicamente.
+
+**Pruebas**
+- Insertar tiempos simulados, verificar orden descendente y persistencia al cerrar el juego.
 
 ### Iniciativa propia
-
 El juego no cuenta con un menú de bienvenida antes de que el juego inicie.
 
 ### Iniciativa del cliente
-
-"El juego no tiene diferentes nivels de dificultad, está muy difícil"
+"El juego no tiene diferentes niveles de dificultad, está muy difícil"
 
 #### Selector de niveles
-
 - Se añadió un selector inicial (Low, Medium, Advanced) antes de iniciar el juego.
 - La selección aplica multiplicadores a: intervalo de disparo, intervalo de spawn de enemigos y velocidad de enemigos.
 
 #### Acción
-
-Se agrega un texto al inicio que indica al usuario que debe presionar enter para poder iniciar el juego
+Se agrega un texto al inicio que indica al usuario que debe presionar enter para poder iniciar el juego.
 
 ### 6.3. Mantenimiento adaptativo
 
-Se ajustó el videojuego para soportar cambios en versiones actuales de Pygame (ej: warnings y sintaxis).
+Se ajustó el videojuego para soportar cambios en versiones actuales del motor y Python.
 Incluyó:
-
 - Actualización de métodos de carga de imágenes.
-- Ajustes en rutas relativas.
-- Correcciones en configuraciones de pantalla.
+- Ajustes en rutas relativas para compatibilidad de assets.
+- Correcciones en configuraciones de pantalla y compatibilidad con Panda3D.
 
 ### 6.5. Mantenimiento preventivo
 
 - Documentación de todas las funciones.
 - Creación de archivo README.md ampliado.
 - Eliminación de código repetido en los loops de enemigos.
-- Mejor organización de assets.
+- Mejor organización de assets en carpetas.
 
 ## 7. Técnicas de mantenimiento aplicadas
 
 ### 7.1. Reingeniería
-
 - Se reconstruyó parcialmente el módulo de colisiones para hacerlo más mantenible.
-- Se reestructuró la lógica de daño.
+- Se reestructuró la lógica de daño y la gestión de fin de juego (Game Over).
 
 ### 7.2. Refactorización
-
-- Se reorganizó el código en funciones pequeñas y claras.
+- Se reorganizó el código monolítico en módulos (`ui`, `sprites`, `game`) con funciones pequeñas y claras.
 - Se eliminaron condicionales redundantes.
 
 ### 7.3. Ingeniería inversa
-
-- Debido a la falta de documentación, se analizó el código para entender su funcionamiento.
+- Debido a la falta de documentación, se analizó el código legado para entender su funcionamiento.
 - Se generó un diagrama de flujo básico del loop principal.
 
 ## 8. Uso de LLMs en el proceso
 
-Durante el desarrollo se emplearon LLMs como ChatGPT para:
-
+Durante el desarrollo se emplearon LLMs como asistentes para:
 - Explicar secciones del código heredado.
 - Proponer soluciones de refactorización.
-- Sugerir patrones de diseño aplicables.
+- Detectar la causa raíz del bug de duplicidad de score (Race condition lógico).
 - Acelerar la documentación.
 - Detectar posibles fallos en la lógica.
-  Se deja constancia de que las decisiones finales fueron tomadas por los integrantes del equipo, no por el LLM.
+
+Se deja constancia de que las decisiones finales y la implementación fueron realizadas por los integrantes del equipo.
 
 ## 9. Plan de trabajo
 
-Se usa Trello para manejo de incidencias, Github como control de versiones, PR para aprobación de cambios y Gitflow para todo el flujo desde el desarrollo hasta el reléase.
+Se usa Trello para manejo de incidencias, Github como control de versiones, PR para aprobación de cambios y Gitflow para todo el flujo desde el desarrollo hasta el release.
 
 ## 10. Conclusiones
 
 El proceso de mantenimiento aplicado permitió:
-
-- Corregir el bug crítico que afectaba la vida del jugador.
-- Implementar la nueva funcionalidad solicitada por el cliente (histórico de mejores tiempos).
+- Corregir el bug crítico que afectaba la vida del jugador y la duplicidad de puntajes.
+- Implementar la nueva funcionalidad solicitada por el cliente (histórico de mejores tiempos Top 3 Acumulativo).
 - Realizar casos representativos de los cuatro tipos de mantenimiento: correctivo, adaptativo, perfectivo y preventivo.
 - Aplicar técnicas profesionales como reingeniería, refactorización e ingeniería inversa.
 - Mantener una documentación detallada conforme a las rúbricas del módulo.
