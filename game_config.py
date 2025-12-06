@@ -86,3 +86,32 @@ ENEMY_SPAWN_PROB = [0.45, 0.25, 0.20, 0.10]
 
 # Player configuration
 PLAYER_STARTING_LIFE = 3
+
+# --- Dificultades / presets ---
+# Cada preset modifica multiplicadores para velocidad de enemigos, intervalo de spawn y de disparo,
+# y la cantidad de vida inicial del jugador.
+DIFFICULTY_PRESETS = {
+    "Easy": {
+        "enemy_speed_mul": 0.8,
+        "enemy_spawn_interval_mul": 1.5,
+        "shot_interval_mul": 1.2,
+        "player_life": PLAYER_STARTING_LIFE
+    },
+    "Medium": {
+        "enemy_speed_mul": 1.0,
+        "enemy_spawn_interval_mul": 1.0,
+        "shot_interval_mul": 1.0,
+        "player_life": PLAYER_STARTING_LIFE
+    },
+    "Hard": {
+        "enemy_speed_mul": 1.8,
+        "enemy_spawn_interval_mul": 0.5,
+        "shot_interval_mul": 0.8,
+        "player_life": PLAYER_STARTING_LIFE
+    }
+}
+
+# Dificultad por defecto al iniciar
+DEFAULT_DIFFICULTY = "Medium"
+
+
