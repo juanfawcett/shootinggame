@@ -6,6 +6,8 @@ Panda3D Shooting Game with Third-Person Perspective and Background
 # Standard library imports
 import random
 import sys
+import json
+import os
 
 # Panda3D imports
 from direct.showbase.ShowBase import ShowBase
@@ -181,6 +183,22 @@ class ShootingGame(ShowBase):
             self.spawnBonusTask,
             "spawnBonusTask"
         )
+        
+        # --- LÓGICA DE SCORE ACUMULATIVO ---
+        self.accumulatedTime = 0.0  # Variable "mochila" para sumar tiempos de stages
+        
+        # --- LÓGICA DE HISTORIAL (UI) ---
+        current_scores = self.loadHighScores()
+        self.bestScore = current_scores[0] if current_scores else 0
+
+        self.highScoreText = OnscreenText(
+            text=f"Best: {self.bestScore}",
+            pos=(-0.05, -0.16),  # Debajo del contador de Wins
+            scale=0.08,
+            fg=(1, 1, 0, 1),     # Amarillo
+            align=TextNode.ARight,
+            parent=base.a2dTopRight
+        )
 
     def createRedFilter(self):
         """Creates the red filter overlay."""
@@ -263,11 +281,6 @@ class ShootingGame(ShowBase):
     def createExplosionSprite(self, x, y, enemy_scale=None, speed=EXPLOSION_SPEED):
         """
         Creates an explosion sprite with scale based on enemy size.
-
-        Parameters:
-        - x, y: Position coordinates
-        - enemy_scale: Scale of the enemy that was destroyed
-        - speed: Movement speed of the explosion
         """
         explosion_tex = loader.loadTexture(EXPLOSION_IMAGE)
 
@@ -286,12 +299,6 @@ class ShootingGame(ShowBase):
     def createBonusSprite(self, x, y, value=BONUS_STARTING_VALUE, scale=BONUS_SCALE, speed=BONUS_SPEED):
         """
         Creates a bonus sprite with the given parameters.
-
-        Parameters:
-        - x, y: Position coordinates
-        - value: Bonus value (-10 to 10)
-        - scale: Sprite scale (vertical and depth)
-        - speed: Movement speed
         """
         # Choose the appropriate texture based on the value
         texture = self.bonusTextures["positive"] if value >= 0 else self.bonusTextures["negative"]
@@ -303,8 +310,6 @@ class ShootingGame(ShowBase):
         bonus_sprite.setPythonTag("scale", scale)
 
         # Stretch the bonus image horizontally:
-        # Set the X scale to half of the total distance between boundaries,
-        # while keeping the vertical scale (Y and Z) the same.
         horiz_scale = (RIGHT_BOUND - LEFT_BOUND)
         bonus_sprite.setScale(horiz_scale, scale, scale)
 
@@ -319,19 +324,19 @@ class ShootingGame(ShowBase):
         )
         
         # Configurar el texto para que esté siempre visible
-        text.setPos(0, -0.06)  # Posicionar justo sobre el bonus (reducido de 1 a 0.2)
-        text.setBin('fixed', 1)  # Asegurar que se renderice después del bonus
-        text.setDepthTest(False)  # Desactivar prueba de profundidad
-        text.setDepthWrite(False)  # Desactivar escritura de profundidad
+        text.setPos(0, -0.06)
+        text.setBin('fixed', 1)
+        text.setDepthTest(False)
+        text.setDepthWrite(False)
         
-        bonus_sprite.setPythonTag("text", text)  # Guardar referencia al texto
+        bonus_sprite.setPythonTag("text", text)
 
         return bonus_sprite
 
     def removeExplosionTask(self, explosion_sprite):
         """Task to remove the explosion sprite after a delay."""
         explosion_sprite.removeNode()
-        if explosion_sprite in self.explosions:  # Remove from explosions list
+        if explosion_sprite in self.explosions:
             self.explosions.remove(explosion_sprite)
         return Task.done
 
@@ -366,7 +371,7 @@ class ShootingGame(ShowBase):
         # Game Timer
         elapsed = globalClock.getRealTime() - self.gameStartTime
         self.timerText.setText(f"Time: {elapsed:.1f}")
-        if elapsed >= GAME_DURATION:  # Remove check for self.enemies
+        if elapsed >= GAME_DURATION:
             self.endGame(win=True)
         elif self.playerLife <= 0:
             self.endGame(win=False)
@@ -407,7 +412,7 @@ class ShootingGame(ShowBase):
             # Verificamos si el enemigo cruzó la línea del jugador
             if enemy.getY() <= PLAYER_START_Y:
                 
-                # --- CORRECCIÓN DEL BUG ---
+                # --- CORRECCIÓN DEL BUG  ---
                 # Verificamos colisión directa (hitbox)
                 if abs(enemy.getX() - self.player.getX()) < 1.0:
                     self.playerLife -= 1
@@ -424,9 +429,7 @@ class ShootingGame(ShowBase):
                     
                     continue # <--- ESTA LÍNEA ES LA SOLUCIÓN: Evita doble castigo
                 
-                # Si el enemigo pasó la línea pero no nos chocó (opcional: daño por dejar pasar)
-                # Como el código original restaba vida al pasar, mantenemos esa lógica
-                # pero aseguramos que sea un evento separado.
+                # Si el enemigo pasó la línea pero no nos chocó (daño por dejar pasar)
                 if enemy in self.enemies: 
                     self.playerLife -= 1
                     self.lifeText.setText(f"Life: {self.playerLife}")
@@ -469,21 +472,19 @@ class ShootingGame(ShowBase):
 
     def applyBonusEffect(self, value):
         """Apply bonus effect to player's shot parameters based on bonus value."""
-        # Calculate modifier based on bonus value (-10 = half, 0 = no change, 10 = double)
+        # Calculate modifier based on bonus value
         if value == -10:  # Minimum value
-            modifier = 0.5  # Halve the values
+            modifier = 0.5
         elif value == 0:   # Neutral value
-            modifier = 1.0  # No change
+            modifier = 1.0
         elif value == 10:  # Maximum value
-            modifier = 2.0  # Double the values
+            modifier = 2.0
         else:
-            # Linear interpolation for values between min and max
-            # Map from -10..10 to 0.5..2.0
             modifier = 0.5 + ((value - BONUS_MIN_VALUE) / (BONUS_MAX_VALUE - BONUS_MIN_VALUE)) * 1.5
 
         # Apply modifiers to shot interval and scale
-        self.currentShotInterval = SHOT_INTERVAL / modifier  # Lower interval = faster shots
-        self.currentShotScale = SHOT_SCALE * modifier       # Higher scale = bigger shots
+        self.currentShotInterval = SHOT_INTERVAL / modifier
+        self.currentShotScale = SHOT_SCALE * modifier
 
         # Reschedule the shot task with the new interval
         self.taskMgr.remove("autoShootTask")
@@ -494,7 +495,6 @@ class ShootingGame(ShowBase):
         for explosion in self.explosions[:]:
             speed = explosion.getPythonTag("speed")
             explosion.setY(explosion.getY() - speed * dt)
-            # Remove explosion if it goes out of bounds (similar to enemies)
             if explosion.getY() < PLAYER_START_Y - 10:
                 explosion.removeNode()
                 self.explosions.remove(explosion)
@@ -514,15 +514,11 @@ class ShootingGame(ShowBase):
                     # Reduce enemy HP by 1
                     hp = enemy.getPythonTag("hp")
                     enemy.setPythonTag("hp", hp - 1)
-
-                    # Flag the shot for removal
                     shot_to_remove = True
 
                     # Check if enemy is destroyed
                     if enemy.getPythonTag("hp") <= 0:
-                        # Get enemy scale for the explosion
-                        enemy_scale = enemy.getScale().x  # Use x component of the scale
-                        # Create explosion at enemy position with scale based on enemy size
+                        enemy_scale = enemy.getScale().x
                         explosion = self.createExplosionSprite(
                             enemy.getX(),
                             enemy.getY(),
@@ -535,9 +531,8 @@ class ShootingGame(ShowBase):
                                                     extraArgs=[explosion])
                         enemy.removeNode()
                         self.enemies.remove(enemy)
-                        break  # Shot can only hit one enemy
+                        break
 
-            # If shot is flagged for removal, remove it and skip bonus collision check
             if shot_to_remove:
                 shot.removeNode()
                 self.shots.remove(shot)
@@ -546,16 +541,14 @@ class ShootingGame(ShowBase):
             # If shot is still active, check for collision with bonuses
             for bonus in self.bonuses[:]:
                 bonusPos = bonus.getPos()
-                if (shotPos - bonusPos).length() < 2:  # collision threshold
+                if (shotPos - bonusPos).length() < 2:
                     # Increase bonus value by exactly 1
                     value = bonus.getPythonTag("value")
-                    new_value = min(value + 1, BONUS_MAX_VALUE)  # Ensure it doesn't exceed the max
-
-                    # Update the stored value
+                    new_value = min(value + 1, BONUS_MAX_VALUE)
                     bonus.setPythonTag("value", new_value)
 
                     # Update the bonus texture based on new value
-                    if new_value > 0:  # Switch to positive texture if value is now positive
+                    if new_value > 0:
                         bonus.setTexture(self.bonusTextures["positive"])
                     else:
                         bonus.setTexture(self.bonusTextures["negative"])
@@ -565,17 +558,15 @@ class ShootingGame(ShowBase):
                     if text:
                         text.setText(str(new_value))
 
-                    # Remove shot after it impacts a bonus
                     shot.removeNode()
                     self.shots.remove(shot)
-                    break  # Shot can only hit one bonus at a time
-
+                    break
 
     def autoShootTask(self, task):
         """Automatically fires a shot from the player's current position."""
         if not self.gameOver:
             shot = self.createSprite(loader.loadTexture(SHOT_IMAGE),
-                                         self.player.getX(), self.player.getY(), self.currentShotScale)
+                                        self.player.getX(), self.player.getY(), self.currentShotScale)
             self.shots.append(shot)
         return Task.again
 
@@ -586,23 +577,17 @@ class ShootingGame(ShowBase):
         etype = random.choices(list(ENEMY_TYPES.keys()), ENEMY_SPAWN_PROB)[0]
         enemyX = random.uniform(LEFT_BOUND, RIGHT_BOUND)
         enemy = self.createSprite(loader.loadTexture(ENEMY_TYPES[etype]["image"]),
-                                     enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
+                                    enemyX, ENEMY_SPAWN_Y, ENEMY_TYPES[etype]["scale"])
         enemy.setPythonTag("hp", ENEMY_TYPES[etype]["hp"])
         enemy.setPythonTag("speed", ENEMY_TYPES[etype]["speed"])
         self.enemies.append(enemy)
         return Task.again
 
     def spawnBonusTask(self, task):
-        """
-        Spawns a new bonus at one of two fixed positions: first quarter or third quarter
-        of the distance between LEFT_BOUND and RIGHT_BOUND.
-        """
+        """Spawns a new bonus at fixed positions."""
         if self.gameOver:
             return Task.done
-
-        # Choose one of the two fixed positions randomly
         bonusX = random.choice(BONUS_SPAWN_POSITIONS)
-
         bonus = self.createBonusSprite(
             bonusX,
             ENEMY_SPAWN_Y,
@@ -617,18 +602,62 @@ class ShootingGame(ShowBase):
         """Ends the game and displays a win/lose message."""
         self.gameOver = True
         self.lastWin = win
+        
+        # 1. Calcular tiempo de ESTA etapa
+        current_stage_time = globalClock.getRealTime() - self.gameStartTime
+        
+        # 2. Calcular RESULTADO TOTAL REAL (Acumulado anterior + Actual)
+        total_score_real = self.accumulatedTime + current_stage_time
+        final_score_display = round(total_score_real, 2)
+        
+        # 3. Guardar en Histórico (Siempre guardamos el total logrado) [cite: 25]
+        self.saveHighScore(final_score_display)
+        
+        # 4. Actualizar UI de High Score
+        updated_scores = self.loadHighScores()
+        if updated_scores:
+            self.bestScore = updated_scores[0]
+            self.highScoreText.setText(f"Best: {self.bestScore}")
+            if final_score_display >= self.bestScore:
+                self.highScoreText.setFg((0, 1, 0, 1)) # Verde si es récord
+
         if win:
-            # Increase win count and stage if the player wins
+            # SI GANAMOS LA ETAPA:
+            # Guardamos el tiempo de esta etapa en la "mochila" para la siguiente
+            self.accumulatedTime += current_stage_time
+            
             self.winCount += 1
             self.stage += 1
             self.winCountText.setText(f"Wins: {self.winCount}")
-            self.statusText.setText(f"You Win! Stage {self.stage} starting soon...")
-            # Automatically restart game after a short delay (3 seconds)
+            self.statusText.setText(f"Stage Clear! Total: {final_score_display}s. Next stage...")
+            
             self.taskMgr.doMethodLater(3.0, self.restartGameTask, "restartGameTask")
         else:
-            self.statusText.setText("Game Over! Press Enter to restart.")
-            # Reset stage on loss
+            # SI PERDEMOS DEFINITIVAMENTE:
+            self.statusText.setText(f"Game Over! Final Score: {final_score_display}s. Press Enter.")
+            
+            # Marcamos reset de stage para que restartGame sepa que debe borrar la cuenta
             self.stage = 1
+
+    def loadHighScores(self):
+        """Carga los puntajes desde un archivo JSON."""
+        if os.path.exists("highscores.json"):
+            try:
+                with open("highscores.json", "r") as f:
+                    return json.load(f)
+            except:
+                return []
+        return []
+
+    def saveHighScore(self, score):
+        """Guarda el nuevo tiempo total en el histórico."""
+        scores = self.loadHighScores()
+        scores.append(score)
+        scores.sort(reverse=True) # Orden descendente
+        scores = scores[:5]       # Top 5
+        
+        with open("highscores.json", "w") as f:
+            json.dump(scores, f)
 
     def restartGameTask(self, task):
         """Task wrapper to restart the game automatically."""
@@ -638,37 +667,31 @@ class ShootingGame(ShowBase):
     def restartGame(self):
         """Resets the game state to allow a new game to start."""
         if self.gameOver:
-            # Remove remaining shots, enemies, explosions, and bonuses
-            for shot in self.shots:
-                shot.removeNode()
+            # Clean up objects
+            for shot in self.shots: shot.removeNode()
             self.shots = []
-
-            for enemy in self.enemies:
-                enemy.removeNode()
+            for enemy in self.enemies: enemy.removeNode()
             self.enemies = []
-
-            for explosion in self.explosions:
-                explosion.removeNode()
+            for explosion in self.explosions: explosion.removeNode()
             self.explosions = []
-
             for bonus in self.bonuses:
                 text = bonus.getPythonTag("text")
-                if text:
-                    text.destroy()
+                if text: text.destroy()
                 bonus.removeNode()
             self.bonuses = []
 
-            # Reset player position and life
+            # Reset player
             self.player.setPos(PLAYER_START_X, PLAYER_START_Y, 0)
             self.player.setTexture(self.playerTextures["idle"])
             self.playerLife = PLAYER_STARTING_LIFE
             self.lifeText.setText(f"Life: {self.playerLife}")
+            self.highScoreText.setFg((1, 1, 0, 1)) # Restaurar color amarillo
 
             # Reset shot parameters
             self.currentShotInterval = SHOT_INTERVAL
             self.currentShotScale = SHOT_SCALE
 
-            # Reschedule the shot task with the default interval
+            # Reset tasks
             self.taskMgr.remove("autoShootTask")
             self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
 
@@ -677,15 +700,18 @@ class ShootingGame(ShowBase):
             self.statusText.setText("")
             self.gameOver = False
 
-            # Remove existing enemy and bonus spawn tasks (if any)
+            # --- LÓGICA DE REINICIO DE TIEMPO ACUMULADO ---
+            # Si perdimos (stage == 1), borramos la cuenta. Si ganamos, la mantenemos.
+            if self.stage == 1:
+                self.accumulatedTime = 0.0
+                self.winCount = 0
+                self.winCountText.setText("Wins: 0")
+            # -----------------------------------------------
+
             self.taskMgr.remove("spawnEnemyTask")
             self.taskMgr.remove("spawnBonusTask")
-
-            # Re-schedule the game tasks with the proper intervals
             self.taskMgr.doMethodLater(ENEMY_SPAWN_INTERVAL, self.spawnEnemyTask, "spawnEnemyTask")
             self.taskMgr.doMethodLater(BONUS_SPAWN_INTERVAL, self.spawnBonusTask, "spawnBonusTask")
 
-
 game = ShootingGame()
 game.run()
-
