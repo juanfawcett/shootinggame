@@ -363,6 +363,13 @@ class ShootingGame(ShowBase):
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
 
     def endGame(self, win):
+
+        # --- NUEVO: CLÁUSULA DE GUARDIA ---
+        # Si la función ya se ejecutó (gameOver es True), no hacemos nada más.
+        # Esto evita que se guarde el puntaje dos veces en el mismo frame.
+        if self.gameOver:
+            return
+        # ----------------------------------
         self.gameOver = True
         self.lastWin = win
 
